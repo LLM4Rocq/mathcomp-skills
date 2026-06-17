@@ -1,0 +1,61 @@
+name: citations
+
+# Weekly drift check: mathcomp reorganizes ~10%/year and the
+# `file.v:line` / `(l. NNN)` citations in reference.md + domains/*.md
+# go stale silently. Installing the full pinned stack is heavy, so we
+# run this on a schedule (not per-PR) plus on manual dispatch.
+#
+# Pins (keep in sync with README.md / LAST_VERIFIED.md "Target versions"):
+#   Rocq 9.1.1 | mathcomp 2.5.0 | mathcomp-analysis 1.16.0
+
+on:
+  schedule:
+    # 06:17 UTC every Monday (off the top of the hour to avoid the
+    # scheduler stampede).
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-citations:
+    runs-on: ubuntu-latest
+    # The pinned Rocq toolchain lives in this image; we opam-install
+    # mathcomp + analysis at the pinned versions on top of it.
+    container:
+      image: coqorg/coq:9.1.1
+      options: --user root
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned mathcomp + analysis
+        run: |
+          set -eux
+          chown -R coq:coq .
+          su coq -c '
+            set -eux
+            eval $(opam env)
+            opam repository add coq-released \
+              https://coq.inria.fr/opam/released --set-default || true
+            opam update
+            opam install -y \
+              coq-mathcomp-ssreflect.2.5.0 \
+              coq-mathcomp-algebra.2.5.0 \
+              coq-mathcomp-field.2.5.0 \
+              coq-mathcomp-analysis.1.16.0
+          '
+
+      - name: Run citation check (strict)
+        run: |
+          set -eux
+          su coq -c '
+            set -eux
+            eval $(opam env)
+            # Locate the installed tree; export for the script.
+            MATHCOMP_ROOT="$(coqc -where)/user-contrib/mathcomp"
+            export MATHCOMP_ROOT
+            bash scripts/check-citations.sh --strict --require-mathcomp \
+              --verbose
+          '

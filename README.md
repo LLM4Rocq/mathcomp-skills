@@ -1,0 +1,146 @@
+# mathcomp-skills
+
+> Tested on **Rocq 9.1.1**, **mathcomp 2.5.0**, **mathcomp-analysis 1.16.0**, **mathcomp-algebra-tactics 1.2.7**, **HB 1.10.2**. Minimum supported: Rocq 9.0, mathcomp 2.4, analysis 1.13, HB 1.8.
+
+A Claude Code skill that bundles a comprehensive style guide for
+[mathcomp](https://github.com/math-comp/math-comp) /
+[mathcomp-analysis](https://github.com/math-comp/analysis) Rocq code,
+plus integration with [rocq-mcp](https://github.com/LLM4Rocq/rocq-mcp)
+for live proof inspection.
+
+## What it covers
+
+- **Core conventions** (`reference.md`, §1-§37): line length, naming
+  (`mainSymbol_suffixes`), proof style, HB instances, deprecation,
+  visibility, idiomatic SSReflect, the PR Citation Index, and the
+  cross-cutting idioms (Bigops, HB Factories, Choice/Decidability,
+  Search Discipline).
+- **Domain-specific idioms** (`domains/`): one file per mathcomp
+  library area, loaded only when relevant.
+  - `38_matrix.md` — `'M[R]_(m,n)`, `mxE`, `\det`, blocks
+  - `39_polynomial.md` — `{poly R}`, `coefE`, `hornerE`, `derivE`
+  - `40_finset.md` — `{set T}`, `inE`, cardinality
+  - `41_int_rat.md` — `int`, `rat`, modular arithmetic
+  - `42_derive.md` — `is_derive`, `'D[_]`, differentiable
+  - `43_measure.md` — `measurable_fun`, Lebesgue integral
+  - `44_topology.md` — filter, nbhs, cvg, `near`
+  - `45_algebra_tactics.md` — `ring`/`field`/`lra`/`nra`/`zify`
+  - `46_tuple_perm_binomial.md` — `n.-tuple`, `'S_n`, `'C(n,m)`
+  - `47_finfun.md` — `{ffun T -> R}`
+- **Playbook** (`playbook.md`): concrete cleanup patterns that have
+  been validated to work, plus the audit recommendations that turn
+  out to be unsound.
+- **Verification stamps** (`LAST_VERIFIED.md`): date-stamped record of
+  which Rocq / mathcomp version each section was end-to-end verified
+  against. ~250+ `file:line` citations are spot-checked here.
+- **Mechanical audit** (`scripts/audit-quick.sh`): pure POSIX
+  shell + `grep`/`awk`/`sed` checker for high-yield style violations
+  (line length, tactic spacing, useless rewrites, scope noise,
+  deprecated lemmas, missing `{ffun}` builders, `lia` without
+  `zify`, etc.).
+
+## Installation
+
+Clone this repo into your user-level Claude Code skills directory:
+
+```sh
+git clone https://github.com/LLM4Rocq/mathcomp-skills.git \
+          ~/.claude/skills/mathcomp-skills
+```
+
+Then **restart Claude Code** so the new skill directory is picked up.
+After restart, the skill will auto-attach when you open a `.v` file
+(via the `paths: "**/*.v"` matcher in `SKILL.md`), or you can invoke
+it directly with `/mathcomp-skills`.
+
+### As a plugin (command + auditor agent)
+
+The repo doubles as a single-plugin bundle
+(`.claude-plugin/plugin.json`). Once it is on Claude Code's plugin
+path, run a read-only style review with:
+
+```sh
+/mathcomp-review                 # changed .v files
+/mathcomp-review theories/*.v    # explicit targets
+/mathcomp-review --scope=project # whole project (prompts)
+```
+
+For large audits the command fans out the read-only
+`mathcomp-style-auditor` subagent, one per file, and consolidates the
+punch lists. It never edits, stages, or commits `.v` files.
+
+### Optional: rocq-mcp integration
+
+The skill includes guidance for using the [rocq-mcp MCP
+server](https://github.com/LLM4Rocq/rocq-mcp) for live proof
+inspection. To enable it, install rocq-mcp and register it with
+Claude Code:
+
+```sh
+pipx install rocq-mcp
+claude mcp add rocq-mcp -- rocq-mcp
+```
+
+Set `ROCQ_WORKSPACE` to your project root before starting a session.
+
+## Updating
+
+To pull in upstream changes:
+
+```sh
+cd ~/.claude/skills/mathcomp-skills && git pull
+```
+
+Then restart Claude Code (or its cache may serve the previous
+version of `SKILL.md`).
+
+## Layout
+
+```
+mathcomp-skills/
+├── SKILL.md                  ← always loaded; dispatcher + decision table
+├── reference.md              ← §1-§37, core conventions (~3270 lines)
+├── domains.md                ← thin index for the per-library files
+├── domains/                  ← §38-§47, one file per mathcomp library area
+│   ├── 38_matrix.md
+│   ├── 39_polynomial.md
+│   ├── 40_finset.md
+│   ├── 41_int_rat.md
+│   ├── 42_derive.md
+│   ├── 43_measure.md
+│   ├── 44_topology.md
+│   ├── 45_algebra_tactics.md
+│   ├── 46_tuple_perm_binomial.md
+│   └── 47_finfun.md
+├── templates.md              ← canonical proof templates by goal shape
+├── playbook.md               ← validated cleanup patterns + anti-patterns
+├── LAST_VERIFIED.md          ← citation-rot mitigation
+└── scripts/
+    ├── audit-quick.sh        ← mechanical style scanner
+    └── README.md
+```
+
+## Verifying citations
+
+`reference.md` and `domains/*.md` cite mathcomp source by
+`file:line`. Citations decay (~10% annual rate as mathcomp
+reorganizes). To spot-check:
+
+```sh
+# pick a citation, e.g. ffunP at boot/finfun.v:181
+grep -n "Lemma ffunP" $(rocqc -where)/user-contrib/mathcomp/boot/finfun.v
+```
+
+If the line drifts, the lemma name should still resolve; update
+`LAST_VERIFIED.md` accordingly.
+
+## License
+
+Released under the Apache License, Version 2.0 — see `LICENSE`.
+
+## Acknowledgements
+
+Built iteratively from a QBS (Quasi-Borel Spaces) Rocq formalization
+project, with extensive multi-agent audits (mathcomp / Rocq / Skills
+/ MCP / devil's-advocate) refining each section against on-disk
+mathcomp source.

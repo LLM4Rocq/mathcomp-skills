@@ -1,0 +1,9 @@
+{
+  "description": "mathcomp-skills: advisory per-file style audit after .v edits",
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Edit|Write",
+      "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/run-audit.sh", "timeout": 15}]
+    }]
+  }
+}

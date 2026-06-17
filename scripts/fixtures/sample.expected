@@ -1,0 +1,3 @@
+[§9] sample.v:6	tactic spacing (drop space before :)	   erefl. Qed.
+[§32.1] sample.v:8	_is_ suffix on lemma - rename to E if equational	8:Lemma foo_is_zero : (0 : nat) = 0.
+[§47.4] sample.v:11	Definition : {ffun ...} := fun (use [ffun x => ...])	Definition g : {ffun 'I_3 -> nat} := fun i => 0....

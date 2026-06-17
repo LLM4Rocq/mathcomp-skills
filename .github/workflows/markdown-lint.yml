@@ -1,0 +1,62 @@
+name: markdown-lint
+
+# Fast, no-opam guardrails that run on every push / PR. Catches the
+# cheap-to-detect doc-rot and shell-portability regressions before the
+# heavy weekly citation job (citations.yml) is even needed.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Self-lint the guide's own §1 (80-col) rule + hygiene ──────────
+  self-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint markdown (fences, width, leftovers)
+        run: |
+          set -eu
+          # Width and placeholder findings are advisory here (the
+          # corpus has known, intentional cases); fence imbalance is
+          # blocking. Drop --warn-width to make >80 fenced lines fatal.
+          bash scripts/lint-markdown.sh --warn-width --warn-ph \
+            reference.md templates.md domains/*.md
+
+  # ── audit-quick.sh golden-output test on Linux AND macOS ─────────
+  # Validates the "pure POSIX / BSD-portable" claim: the same script
+  # must produce byte-identical output under GNU and BSD awk/sed/grep.
+  audit-fixtures:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run audit-quick.sh against fixtures and diff vs golden
+        run: |
+          set -eu
+          got=$(bash scripts/audit-quick.sh scripts/fixtures/sample.v \
+            | sed 's#scripts/fixtures/sample\.v#sample.v#g')
+          printf '%s\n' "$got" | diff - scripts/fixtures/sample.expected
+          echo "audit-quick.sh output matches golden file on ${{ matrix.os }}"
+
+  # ── shellcheck on every bundled script ───────────────────────────
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck (pinned)
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y shellcheck=0.9.0-1
+      - name: shellcheck scripts/*.sh
+        run: |
+          set -eu
+          shellcheck --version
+          shellcheck scripts/*.sh

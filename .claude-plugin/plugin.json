@@ -1,0 +1,13 @@
+{
+  "name": "mathcomp-skills",
+  "version": "0.1.0",
+  "description": "math-comp / mathcomp-analysis Rocq style guide, validated cleanup patterns, a read-only review command, and a per-file style auditor subagent — rocq-mcp-aware.",
+  "author": {
+    "name": "LLM4Rocq"
+  },
+  "license": "Apache-2.0",
+  "skills": ["./SKILL.md"],
+  "commands": ["./commands/mathcomp-review.md"],
+  "agents": ["./agents/mathcomp-style-auditor.md"],
+  "hooks": "./hooks/hooks.json"
+}

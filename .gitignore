@@ -1,0 +1,17 @@
+# Editor / OS junk
+*.swp
+*.swo
+.DS_Store
+*~
+.vscode/
+
+# Stray packaging artifacts
+mathcomp-skills-*.tar.gz
+mathcomp-rocq-guide-*.tar.gz
+
+# Audit script transient outputs
+audit-output-*.txt
+
+# Python
+__pycache__/
+*.pyc
