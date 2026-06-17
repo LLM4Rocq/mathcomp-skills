@@ -36,7 +36,6 @@ MODE="search"        # search | about | print
 INSIDE=""
 OUTSIDE=""
 NAME=""
-COQARGS=""           # -R/-Q passthrough, space-joined (quoted per-token below)
 
 usage() {
   sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'
