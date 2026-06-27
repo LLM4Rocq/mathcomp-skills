@@ -20,6 +20,7 @@ jobs:
       - name: Lint markdown (fences, width, leftovers)
         run: |
           set -eu
+          cd skills/mathcomp-skills
           # Width and placeholder findings are advisory here (the
           # corpus has known, intentional cases); fence imbalance is
           # blocking. Drop --warn-width to make >80 fenced lines fatal.
@@ -40,6 +41,7 @@ jobs:
       - name: Run audit-quick.sh against fixtures and diff vs golden
         run: |
           set -eu
+          cd skills/mathcomp-skills
           got=$(bash scripts/audit-quick.sh scripts/fixtures/sample.v \
             | sed 's#scripts/fixtures/sample\.v#sample.v#g')
           printf '%s\n' "$got" | diff - scripts/fixtures/sample.expected
@@ -58,5 +60,6 @@ jobs:
       - name: shellcheck scripts/*.sh
         run: |
           set -eu
+          cd skills/mathcomp-skills
           shellcheck --version
           shellcheck scripts/*.sh

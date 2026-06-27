@@ -56,6 +56,7 @@ jobs:
             # Locate the installed tree; export for the script.
             MATHCOMP_ROOT="$(coqc -where)/user-contrib/mathcomp"
             export MATHCOMP_ROOT
+            cd skills/mathcomp-skills
             bash scripts/check-citations.sh --strict --require-mathcomp \
               --verbose
           '

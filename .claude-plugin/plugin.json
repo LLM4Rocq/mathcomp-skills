@@ -5,9 +5,5 @@
   "author": {
     "name": "LLM4Rocq"
   },
-  "license": "Apache-2.0",
-  "skills": ["./SKILL.md"],
-  "commands": ["./commands/mathcomp-review.md"],
-  "agents": ["./agents/mathcomp-style-auditor.md"],
-  "hooks": "./hooks/hooks.json"
+  "license": "Apache-2.0"
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # PostToolUse hook: after an Edit/Write to a *.v file, run the mechanical
-# style auditor (scripts/audit-quick.sh) on JUST that file and surface any
+# style auditor (skills/mathcomp-skills/scripts/audit-quick.sh) on JUST that
+# file and surface any
 # findings as advisory additionalContext.
 #
 # Contract: this hook is READ-ONLY and ADVISORY. It must NEVER block or fail
@@ -23,7 +24,7 @@ ROOT="${CLAUDE_PLUGIN_ROOT:-}"
 if [ -z "$ROOT" ]; then
   ROOT="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"
 fi
-AUDIT="$ROOT/scripts/audit-quick.sh"
+AUDIT="$ROOT/skills/mathcomp-skills/scripts/audit-quick.sh"
 
 # Read the hook payload from stdin.
 PAYLOAD="$(cat 2>/dev/null || true)"
