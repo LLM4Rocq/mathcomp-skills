@@ -407,7 +407,7 @@ Binomial identity
 
 Counting finite configurations
     n-tuples with a predicate, all uniq
-        -> card_uniq_tuples       (binomial.v 372)
+        -> card_uniq_tuples       (boot/binomial.v 372)
     k-subsets of a set
         -> cards_draws / card_draws  (407, 452)
     sorted tuples

@@ -31,9 +31,9 @@ the last two are routine in proof scripts.
 
 | Notation | Definition | Meaning |
 |----------|-----------|---------|
-| `'d f x` | `diff` (l. 72), `Notation` (l. 166) | Fréchet differential, a `{linear V -> W}` continuous map |
+| `'d f x` | `diff` (l. 72), notation `analysis/derive.v:166` | Fréchet differential, a `{linear V -> W}` continuous map |
 | `differentiable f x` | l. 84-85 | predicate: `'d f x` exists |
-| `'D_v f x` | `derive` (l. 240); `Notation` (l. 327) | directional derivative of `f` at `x` along `v` |
+| `'D_v f x` | `derive` (l. 240); notation `analysis/derive.v:327` | directional derivative of `f` at `x` along `v` |
 | `derivable f a v` | l. 246 | predicate: the directional limit at `a` along `v` exists |
 | `f^`()` | `derive1` (l. 379) | one-dimensional derivative for `f : R -> V`; defined as `'D_1 f` |
 | `f^`(n)` | `derive1n` (l. 395) | `iter n derive1 f` |
@@ -87,14 +87,14 @@ instance's right-hand side:
 | `is_derive_sum` | derive.v 1171 | `\sum_(i < n) h i` (cf. §34) |
 | `is_derive_shift` | derive.v 1409 | `is_derive x v (shift k) v` |
 | `is_diff_comp` | derive.v 775 | composition (Fréchet level, priority 99) |
-| `is_derive_expR` | exp.v 356 | `is_derive x 1 expR (expR x)` |
-| `is_derive1_ln` | exp.v 799 | `0 < x -> is_derive x 1 ln x^-1` |
-| `is_derive1_powR` | exp.v 1121 | `0 < x -> is_derive x 1 (powR ^~ a) (a * x `^ (a - 1))` |
-| `is_derive_sin` | trigo.v 274 | `is_derive x 1 sin (cos x)` |
-| `is_derive_cos` | trigo.v 300 | `is_derive x 1 cos (- sin x)` |
-| `is_derive1_sqrt` | realfun.v 1926 | `0 < x -> is_derive x 1 sqrt (2 * sqrt x)^-1` |
+| `is_derive_expR` | analysis/exp.v 356 | `is_derive x 1 expR (expR x)` |
+| `is_derive1_ln` | analysis/exp.v 799 | `0 < x -> is_derive x 1 ln x^-1` |
+| `is_derive1_powR` | analysis/exp.v 1121 | `0 < x -> is_derive x 1 (powR ^~ a) (a * x `^ (a - 1))` |
+| `is_derive_sin` | analysis/trigo.v 274 | `is_derive x 1 sin (cos x)` |
+| `is_derive_cos` | analysis/trigo.v 300 | `is_derive x 1 cos (- sin x)` |
+| `is_derive1_sqrt` | analysis/realfun.v 1926 | `0 < x -> is_derive x 1 sqrt (2 * sqrt x)^-1` |
 
-`is_deriveV` (realfun.v 1885) is a *lemma*, not an instance — `f x != 0`
+`is_deriveV` (analysis/realfun.v 1885) is a *lemma*, not an instance — `f x != 0`
 is a side condition resolution cannot guess; supply it manually.
 
 The bridging projections are first-class lemmas:
@@ -367,7 +367,7 @@ hint at l. 329); `mathcomp/analysis/exp.v` (`is_derive_expR` l. 356,
 `is_derive_cos` l. 300); `mathcomp/analysis/realfun.v` (`is_deriveV`
 l. 1885, `is_derive_inverse` l. 1894, `is_derive1_sqrt` l. 1926).
 The "Trick to trigger type class resolution" comment is verbatim
-from derive.v l. 2206. Cross-ref §15/§35 (HB and `Hint Mode`),
+from analysis/derive.v l. 2206. Cross-ref §15/§35 (HB and `Hint Mode`),
 §34 (`is_derive_sum` for bigop derivatives), §36 (typeclass / choice
 resolution), §37 (search via `is_derive_<head_symbol>` naming
 convention).

@@ -168,8 +168,8 @@ ffun, and the same `apply/...P; rewrite !...E` chord delegates to
 
 | Wrapper type | Definition | Open with |
 |--------------|------------|-----------|
-| `'M[R]_(m, n)` (matrix.v l. 283) | `Variant matrix := Matrix of {ffun 'I_m * 'I_n -> R}` | `apply/matrixP => i j; rewrite !mxE` (§38.3) |
-| `{set T}` (finset.v l. 136) | `Inductive set_type := FinSet of {ffun pred T}` | `apply/setP => x; rewrite !inE` (§40.5) |
+| `'M[R]_(m, n)` (algebra/matrix.v l. 283) | `Variant matrix := Matrix of {ffun 'I_m * 'I_n -> R}` | `apply/matrixP => i j; rewrite !mxE` (§38.3) |
+| `{set T}` (boot/finset.v l. 136) | `Inductive set_type := FinSet of {ffun pred T}` | `apply/setP => x; rewrite !inE` (§40.5) |
 | `T ^ n` (finfun.v l. 124) | `{ffun 'I_n -> T}` directly | `apply/ffunP => i; rewrite !ffunE` |
 | `n.-tuple T` | NOT an ffun (sized seq); use `eq_from_tnth` | `apply: eq_from_tnth => i` |
 
@@ -202,11 +202,11 @@ Two especially useful lemmas in this layer:
 
 ```coq
 Lemma ffunMnE (f : {ffun aT -> rT}) n x : (f *+ n) x = f x *+ n.
-                                     (* nmodule.v l. 1283 *)
+                                     (* boot/nmodule.v l. 1283 *)
 
 Lemma sum_ffunE (F : I -> {ffun aT -> rT}) x :
   (\sum_(i <- r | P i) F i) x = \sum_(i <- r | P i) F i x.
-                                     (* nmodule.v l. 1293 *)
+                                     (* boot/nmodule.v l. 1293 *)
 ```
 
 `sum_ffunE` is the §34 chord for "evaluate a `\sum` of ffuns at a
@@ -232,10 +232,10 @@ f \in pffun_on y D R                  (* support \subset D, range \subset R *)
 f \in pfamily y D F                   (* support \subset D, f x \in F x for x \in D *)
 ```
 
-The `P` views (l. 373, 382, 394) are how you prove or destruct
-membership; `card_pffun_on` (l. 472) gives the cardinality
-`#\|R\| ^ #\|D\|`. These are the canonical primitives behind
-finitely-supported sums.
+Back in `mathcomp/boot/finfun.v`, the `P` views (l. 373, 382, 394)
+are how you prove or destruct membership; `card_pffun_on` (l. 472)
+gives the cardinality `#\|R\| ^ #\|D\|`. These are the canonical
+primitives behind finitely-supported sums.
 
 ### 47.8 Common pitfalls
 
@@ -350,7 +350,7 @@ Wrapper types: `'M[R]_(m, n)` is `Variant matrix := Matrix of {ffun 'I_m * 'I_n 
 (`mathcomp/algebra/matrix.v` l. 283); `{set T}` is
 `Inductive set_type := FinSet of {ffun pred T}`
 (`mathcomp/boot/finset.v` l. 136); `T ^ n` is `{ffun 'I_n -> T}`
-directly (finfun.v l. 124). All three delegate the canonical-equation
+directly (boot/finfun.v l. 124). All three delegate the canonical-equation
 proof to `ffunE`.
 
 Cross-ref §10 (E / K / P naming), §11 (suffixes), §28 (reflection),

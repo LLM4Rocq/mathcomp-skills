@@ -308,7 +308,7 @@ not a manual `coprime` invocation.
    one.
 5. **Building rationals as `a # b`.** No such notation; use
    `(a%:Q / b%:Q)` or the printing-only `[rat a // b]`.
-6. **`ratz n` in goals.** Mathcomp's own comment (`rat.v` l. 538):
+6. **`ratz n` in goals.** Comment in `mathcomp/algebra/rat.v` (l. 538):
    "ratz should not be used, %:Q should be used instead."
    `ratzE : ratz n = n%:Q` (l. 539) is the canonical rewrite.
 7. **`fracq` in goals.** `fracq` is internal to the construction of
@@ -347,12 +347,12 @@ Goal involves division / modulus / gcd.
     -> projections numq, denq for normal-form access; numqE bridges
 
   Need Bezout coefficients?
-    -> nat: egcdn, Bezoutl/r          (div.v l. 677, 724-732)
-    -> int: egcdz, Bezoutz             (intdiv.v l. 65, 603)
+    -> nat: egcdn, Bezoutl/r          (boot/div.v l. 677, 724-732)
+    -> int: egcdz, Bezoutz             (algebra/intdiv.v l. 65, 603)
 
   Chinese remainder?
-    -> nat: chinese (div.v l. 1020), chinese_remainder (l. 1009)
-    -> int: zchinese (intdiv.v l. 675), zchinese_remainder (l. 667)
+    -> nat: chinese (boot/div.v l. 1020), chinese_remainder (l. 1009)
+    -> int: zchinese (algebra/intdiv.v l. 675), zchinese_remainder (l. 667)
 
   Prime divides product?
     -> Euclid_dvdM, Euclid_dvdX, Euclid_dvd_prod (prime.v)

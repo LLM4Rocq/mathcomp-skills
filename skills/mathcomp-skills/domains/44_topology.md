@@ -88,17 +88,17 @@ Apply §36's rule across the topology stack. The hierarchy
        nbhsType  (just a `nbhs : T -> set_system T`)
           |
           v   + open / openE_subproof  (interior axioms)
-     topologicalType                      (topology_structure.v 103)
+     topologicalType                      (analysis/topology_theory/topology_structure.v 103)
           |
           v   + uniformity entourage / ball
        uniformType   /   pseudoMetricType (pseudometric_structure.v)
                                 |
                                 v   + norm   pseudoMetricNormedZmodType
-                                              (pseudometric_normed_Zmodule.v 141)
+                                              (analysis/normedtype_theory/pseudometric_normed_Zmodule.v 141)
                                                           |
                                                           v   + scaling
                                                        normedModType
-                                                       (normed_module.v 84)
+                                                       (analysis/normedtype_theory/normed_module.v 84)
 ```
 
 | Lemma uses... | Hypothesis to ask for |
