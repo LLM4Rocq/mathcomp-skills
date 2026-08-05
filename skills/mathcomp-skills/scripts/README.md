@@ -90,6 +90,12 @@ For every citation it extracts the cited identifier, its line number,
 and the source `.v` file (the nearest preceding
 `mathcomp/<path>/<file>.v` context for the `(l. NNN)` form), then:
 
+A coupled citation may carry its own directory — `boot/div.v l. 677`,
+`analysis/exp.v:356` — in which case that path wins and the
+surrounding context is ignored. Prefer this when a section cites a
+file other than its own: a bare `div.v` depends on the context being
+right, and silently resolves elsewhere when it is not.
+
 | Outcome | Meaning |
 |---------|---------|
 | `OK`    | identifier declared within the tolerance of the cited line (quiet unless `--verbose`) |

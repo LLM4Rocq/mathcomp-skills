@@ -11,9 +11,11 @@
 #   `ident` (l. NNN, MMM)    -- first line number is used
 #   file.v l. NNN            -- coupled file + line
 #   file.v:NNN               -- coupled file + line (templates style)
+#   dir/file.v:NNN           -- coupled path + line (context-independent)
 # The *file* for the `(l. NNN)` form is the nearest preceding
 # `mathcomp/<path>/<file>.v` reference in the same markdown file (the
-# section's source-file context).
+# section's source-file context). A coupled citation that carries its
+# own directory is authoritative and ignores that context.
 #
 # Outcomes per citation:
 #   ERROR  file or identifier not found at all  (rename/removal/reorg)
@@ -152,17 +154,20 @@ extract_citations() {
           sub(/^mathcomp\//, "", ctx)
         }
       }
-      # Coupled "file.v:NNN" or "file.v l. NNN" / "file.v NNN".
+      # Coupled "file.v:NNN" or "file.v l. NNN" / "file.v NNN", with an
+      # optional directory prefix ("boot/div.v l. 677").
       {
         line = $0
         while (match(line,
-            /[A-Za-z_][A-Za-z0-9_]*\.v(:[0-9]+|[: ]+l\.[ ]?[0-9]+|[ ]+[0-9]+)/)) {
+            /([A-Za-z_][A-Za-z0-9_]*\/)*[A-Za-z_][A-Za-z0-9_]*\.v(:[0-9]+|[: ]+l\.[ ]?[0-9]+|[ ]+[0-9]+)/)) {
           m = substr(line, RSTART, RLENGTH)
           rest = substr(line, RSTART + RLENGTH)
           line = rest
           f = m; sub(/\.v.*$/, ".v", f)
-          n = m; sub(/^[^0-9]*/, "", n)
-          # Map a bare basename onto the current path context.
+          sub(/^mathcomp\//, "", f)
+          n = m; sub(/^.*\.v[^0-9]*/, "", n)
+          # A directory-qualified path is authoritative on its own; a
+          # bare basename is mapped onto the current path context.
           path = f
           if (f !~ /\//) {
             if (ctx != "" && ctx ~ ("/" f "$")) path = ctx

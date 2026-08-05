@@ -125,7 +125,7 @@ Roots and the factor theorem:
 | `rootX` (l. 1460) | `root 'X x = (x == 0)` |
 | `root_XsubC` (l. 1732) | `root ('X - a%:P) x = (x == a)` |
 | `factor_theorem` (l. 1738) | `reflect (exists q, p = q * ('X - a%:P)) (root p a)` |
-| `dvdp_XsubCl` (polydiv.v l. 1364) | `('X - x%:P) %\| p = root p x` |
+| `dvdp_XsubCl` (algebra/polydiv.v l. 1364) | `('X - x%:P) %\| p = root p x` |
 
 ### 39.3 `apply: polyP` for coefficient-wise equality
 
@@ -157,7 +157,7 @@ Pseudo-division (`polydiv.v`) provides `%/`, `%%`, `%|`, `%=` in
 | `p %\| q` (l. 832) | `dvdp p q` |
 | `p %= q` (l. 833) | `eqp p q` (associate, i.e. `p %\| q && q %\| p`) |
 
-The Euclidean identity is `divp_eq` (polydiv.v l. 921):
+The Euclidean identity is `divp_eq` (algebra/polydiv.v l. 921):
 `(lead_coef q ^+ scalp p q) *: p = (p %/ q) * q + (p %% q)`. Over a
 field the leading-coefficient power becomes `1`.
 
@@ -262,9 +262,9 @@ abbreviation table.
    (l. 562), gated on `lead_coef p * lead_coef q != 0`.
 
 5. **`=p` (`%=`, the associate relation) vs `=`**. `p %= q`
-   (polydiv.v l. 833) means `dvdp p q && dvdp q p`. It is *not*
+   (algebra/polydiv.v l. 833) means `dvdp p q && dvdp q p`. It is *not*
    propositional equality on `{poly R}`. Convert to `=` via
-   `eqp_eq` (polydiv.v l. 1422) when you need scaled equality.
+   `eqp_eq` (algebra/polydiv.v l. 1422) when you need scaled equality.
 
 6. **`Search` on poly notations.** The `\poly_(i < n) E` head is
    `poly`; prefer `Search "\poly_"` (substring) or

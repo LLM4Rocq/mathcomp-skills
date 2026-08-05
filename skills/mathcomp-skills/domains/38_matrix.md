@@ -208,7 +208,7 @@ rewrite (expand_det_col A j0). (* Laplace along column j0 *)
 ```
 
 The adjugate `\adj A := \matrix_(i, j) cofactor A j i` (l. 3384) gives
-Cramer's rule via `mul_mx_adj` and `mul_adj_mx` (l. 3620, 3634):
+Cramer's rule via `mul_mx_adj` (l. 3620) and `mul_adj_mx` (l. 3634):
 
 ```coq
 A *m \adj A = (\det A)%:M.

@@ -340,7 +340,7 @@ data. Conversions:
    similarly forbidden.
 
 7. **`subset_refl` vs `subxx`**. The reflexivity lemma in
-   `fintype.v` is `subxx` (l. 611); `subset_refl` is a
+   `mathcomp/boot/fintype.v` is `subxx` (l. 611); `subset_refl` is a
    non-mathcomp alias and breaks `Search subxx`. Use `subxx`.
 
 8. **`finType` overhead in lemma statements**. A lemma about
