@@ -23,8 +23,13 @@ jobs:
     runs-on: ubuntu-latest
     # The pinned Rocq toolchain lives in this image; we opam-install
     # mathcomp + analysis at the pinned versions on top of it.
+    #
+    # NB: coqorg/coq only publishes Coq <= 8.20.1. Rocq >= 9.0 images
+    # live in rocq/rocq-prover, where the unprivileged user is `rocq`
+    # (not `coq`) and the released opam repo is preregistered as
+    # `rocq-released` for all switches.
     container:
-      image: coqorg/coq:9.1.1
+      image: rocq/rocq-prover:9.1.1
       options: --user root
     steps:
       - name: Checkout
@@ -33,28 +38,43 @@ jobs:
       - name: Install pinned mathcomp + analysis
         run: |
           set -eux
-          chown -R coq:coq .
-          su coq -c '
+          chown -R rocq:rocq .
+          su rocq -c '
             set -eux
             eval $(opam env)
-            opam repository add coq-released \
-              https://coq.inria.fr/opam/released --set-default || true
             opam update
+            # The coq-mathcomp-* names are now thin compatibility shims,
+            # and coq-mathcomp-ssreflect drags in the transitional
+            # coq-core package. Install the rocq-* packages directly.
             opam install -y \
-              coq-mathcomp-ssreflect.2.5.0 \
-              coq-mathcomp-algebra.2.5.0 \
-              coq-mathcomp-field.2.5.0 \
-              coq-mathcomp-analysis.1.16.0
+              rocq-mathcomp-ssreflect.2.5.0 \
+              rocq-mathcomp-algebra.2.5.0 \
+              rocq-mathcomp-field.2.5.0 \
+              rocq-mathcomp-analysis.1.16.0
           '
 
       - name: Run citation check (strict)
         run: |
           set -eux
-          su coq -c '
+          su rocq -c '
             set -eux
             eval $(opam env)
-            # Locate the installed tree; export for the script.
-            MATHCOMP_ROOT="$(coqc -where)/user-contrib/mathcomp"
+            # Rocq 9 ships one "rocq" binary with subcommands; there is no
+            # rocqc, and coqc is packaged in coq-core, which this image
+            # omits. "rocq c -where" is the coqc -where equivalent.
+            COQLIB="$(rocq c -where)"
+            for cand in "$COQLIB/user-contrib/mathcomp" \
+                        "$COQLIB/../coq/user-contrib/mathcomp"
+            do
+              if [ -d "$cand" ]; then
+                MATHCOMP_ROOT="$(cd "$cand" && pwd)"
+                break
+              fi
+            done
+            [ -n "${MATHCOMP_ROOT:-}" ] || {
+              echo "mathcomp tree not found under $COQLIB" >&2
+              exit 1
+            }
             export MATHCOMP_ROOT
             cd skills/mathcomp-skills
             bash scripts/check-citations.sh --strict --require-mathcomp \

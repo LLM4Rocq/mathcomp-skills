@@ -22,7 +22,7 @@
 #   --strict             also fail on warnings (e.g. opaque/uncheckable)
 #   -h, --help           this help
 #
-# Graceful degrade: no rocqc/coqc -> clear message + exit 0 (never blocks).
+# Graceful degrade: no rocq/coqc -> clear message + exit 0 (never blocks).
 #
 # Pure bash + POSIX coreutils. Tested on macOS (BSD) and Linux (GNU).
 
@@ -98,17 +98,19 @@ if [ "$ALL" -eq 1 ]; then
   fi
 fi
 
-# Locate the Rocq compiler.
+# Locate the Rocq compiler. Rocq >= 9 ships a single `rocq` binary whose
+# `c` subcommand replaces coqc; there is no `rocqc`. `coqc` survives on
+# Coq <= 8.20 and via Rocq's transitional coq-core package.
 COQC=""
-if command -v rocqc >/dev/null 2>&1; then
-  COQC="rocqc"
+if command -v rocq >/dev/null 2>&1; then
+  COQC="rocq c"
 elif command -v coqc >/dev/null 2>&1; then
   COQC="coqc"
 fi
 
 # Graceful degrade.
 if [ -z "$COQC" ]; then
-  echo "rocqc/coqc not found -- skipping axiom check (cannot run Print Assumptions)." >&2
+  echo "rocq/coqc not found -- skipping axiom check (cannot run Print Assumptions)." >&2
   echo "To check manually, append per lemma in your IDE / rocq-mcp:" >&2
   for nm in $NAMES; do echo "  Print Assumptions $nm." >&2; done
   exit 0
@@ -144,8 +146,10 @@ cp "$FILE" "$VF" || { echo "$PROG: copy failed" >&2; exit 2; }
 # but run from the file's directory so relative project paths resolve.
 SRCDIR="$(dirname "$FILE")"
 OUT="$WORK/out.txt"
+# $COQC may be `rocq c`; $COQ_RQ/$PROJ_ARGS are token lists. All three are
+# intentionally word-split.
 # shellcheck disable=SC2086
-( cd "$SRCDIR" && "$COQC" -q $COQ_RQ $PROJ_ARGS "$VF" ) > "$OUT" 2>&1
+( cd "$SRCDIR" && $COQC -q $COQ_RQ $PROJ_ARGS "$VF" ) > "$OUT" 2>&1
 status=$?
 
 if [ "$status" -ne 0 ]; then

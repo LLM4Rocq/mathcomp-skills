@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Classify coqc / rocqc error output into structured JSON.
+"""Classify coqc / rocq error output into structured JSON.
 
 Reads coqc output from a FILE argument or stdin, parses each error block
 (default and `-emacs` location formats), classifies the error type with a
@@ -177,7 +177,7 @@ def parse(text):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Classify coqc/rocqc error output into structured JSON.")
+        description="Classify coqc/rocq error output into structured JSON.")
     parser.add_argument(
         "file", nargs="?", default="-",
         help="coqc output file to read (default: stdin)")

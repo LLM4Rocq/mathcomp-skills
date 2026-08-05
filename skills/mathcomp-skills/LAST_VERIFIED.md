@@ -56,7 +56,7 @@ resolve; **line numbers** in `file.v:line` citations may drift by
 `domains/*.md` for `file.v:line` and `` `ident` (l. NNN) `` citations
 and verifies each named lemma still exists near that line in the
 installed mathcomp (`$MATHCOMP_ROOT`, else
-`$(rocqc -where)/user-contrib/mathcomp`, else the `coqc` equivalent).
+`$(rocq c -where)/user-contrib/mathcomp`, else the `coqc` equivalent).
 It reports `OK` / `WARN` (line drifted past the `±N` tolerance, with a
 suggested fix) / `ERROR` (file or identifier gone), exits non-zero on
 ERROR (or on WARN under `--strict`), and **degrades gracefully to
