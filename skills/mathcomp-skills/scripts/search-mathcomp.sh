@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run a Rocq Search / About / Print query against mathcomp from the CLI.
 # Operationalizes reference.md §37 (Search discipline): build a tiny .v with
-# the right imports, run `coqc -q` on it, and print the results.
+# the right imports, compile it with `-q`, and print the results.
 #
 # Usage:
 #   search-mathcomp.sh [opts] <query...>
@@ -23,7 +23,7 @@
 #   term pattern:     "(?x + ?y)"  -> Search (?x + ?y).
 #   head pattern:     "_ (_ + _)"  -> Search _ (_ + _).
 #
-# Graceful degrade: if no rocqc/coqc on PATH, print the exact `Search ...`
+# Graceful degrade: if no rocq/coqc on PATH, print the exact `Search ...`
 # command to paste into your IDE / rocq-mcp `rocq_query` and exit 0.
 #
 # Pure bash + POSIX coreutils. Tested on macOS (BSD) and Linux (GNU).
@@ -99,17 +99,19 @@ fi
 
 CMD="$(build_command)"
 
-# Locate the Rocq compiler.
+# Locate the Rocq compiler. Rocq >= 9 ships a single `rocq` binary whose
+# `c` subcommand replaces coqc; there is no `rocqc`. `coqc` survives on
+# Coq <= 8.20 and via Rocq's transitional coq-core package.
 COQC=""
-if command -v rocqc >/dev/null 2>&1; then
-  COQC="rocqc"
+if command -v rocq >/dev/null 2>&1; then
+  COQC="rocq c"
 elif command -v coqc >/dev/null 2>&1; then
   COQC="coqc"
 fi
 
 # Graceful degrade: no compiler — print the paste-able query and exit 0.
 if [ -z "$COQC" ]; then
-  echo "rocqc/coqc not found -- paste this into your IDE or rocq-mcp rocq_query:" >&2
+  echo "rocq/coqc not found -- paste this into your IDE or rocq-mcp rocq_query:" >&2
   echo "$IMPORTS"
   echo "$CMD"
   exit 0
@@ -127,9 +129,10 @@ VF="$WORK/query.v"
   printf '%s\n' "$CMD"
 } > "$VF"
 
-# coqc -q : ignore rcfiles. $COQ_RQ is intentionally word-split (token list).
+# -q : ignore rcfiles. $COQC and $COQ_RQ are intentionally word-split
+# ($COQC may be `rocq c`; $COQ_RQ is a token list).
 # shellcheck disable=SC2086
-"$COQC" -q $COQ_RQ "$VF"
+$COQC -q $COQ_RQ "$VF"
 status=$?
 
 if [ "$status" -ne 0 ]; then

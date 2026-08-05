@@ -134,7 +134,7 @@ reorganizes). To spot-check:
 
 ```sh
 # pick a citation, e.g. ffunP at boot/finfun.v:181
-grep -n "Lemma ffunP" $(rocqc -where)/user-contrib/mathcomp/boot/finfun.v
+grep -n "Lemma ffunP" $(rocq c -where)/user-contrib/mathcomp/boot/finfun.v
 ```
 
 If the line drifts, the lemma name should still resolve; update

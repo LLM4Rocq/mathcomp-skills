@@ -60,9 +60,9 @@ Sources scanned: reference.md and domains/*.md under the skill root.
 
 mathcomp location (first that exists wins):
   \$MATHCOMP_ROOT
-  \$(rocqc -where)/user-contrib/mathcomp
-  \$(coqc  -where)/user-contrib/mathcomp
-  \$(rocqc -where)/../coq/user-contrib/mathcomp   (sibling layout)
+  \$(rocq c -where)/user-contrib/mathcomp          (Rocq >= 9)
+  \$(coqc -where)/user-contrib/mathcomp            (Coq <= 8.20)
+  \$(rocq c -where)/../coq/user-contrib/mathcomp   (sibling layout)
 
 Exit codes:
   0  no ERRORs (and no WARNs under --strict); or mathcomp absent
@@ -91,13 +91,18 @@ case "$TOL" in
 esac
 
 # ── Locate the installed mathcomp tree ────────────────────────────
+# Rocq >= 9 ships a single `rocq` binary whose `c` subcommand replaces
+# coqc; there is no `rocqc`. `coqc` survives on Coq <= 8.20 and via
+# Rocq's transitional coq-core package, so we still fall back to it.
 find_mathcomp() {
   if [ -n "${MATHCOMP_ROOT:-}" ] && [ -d "$MATHCOMP_ROOT" ]; then
     printf '%s\n' "$MATHCOMP_ROOT"; return 0
   fi
-  for tool in rocqc coqc; do
-    command -v "$tool" >/dev/null 2>&1 || continue
-    where=$("$tool" -where 2>/dev/null) || continue
+  for tool in "rocq c" "coqc"; do
+    command -v "${tool%% *}" >/dev/null 2>&1 || continue
+    # $tool is intentionally word-split (command + subcommand).
+    # shellcheck disable=SC2086
+    where=$($tool -where 2>/dev/null) || continue
     [ -n "$where" ] || continue
     for cand in \
       "$where/user-contrib/mathcomp" \

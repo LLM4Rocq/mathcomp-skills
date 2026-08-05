@@ -116,12 +116,16 @@ ${CLAUDE_SKILL_DIR}/scripts/check-citations.sh [options]
 ### Finding the mathcomp tree
 
 First match wins:
-`$MATHCOMP_ROOT` → `$(rocqc -where)/user-contrib/mathcomp` →
+`$MATHCOMP_ROOT` → `$(rocq c -where)/user-contrib/mathcomp` →
 `$(coqc -where)/user-contrib/mathcomp` → a sibling `../coq/...` layout.
+
+Rocq ≥ 9 ships a single `rocq` binary whose `c` subcommand replaces
+`coqc`; there is no `rocqc`. `coqc` is still probed as a fallback, for
+Coq ≤ 8.20 and for Rocq's transitional `coq-core` package.
 
 ### Graceful degrade
 
-If neither `rocqc`/`coqc` nor a mathcomp tree is present, the script
+If neither `rocq`/`coqc` nor a mathcomp tree is present, the script
 prints `mathcomp not found -- skipping` and **exits 0**, so a
 contributor without the full stack is never blocked. Pass
 `--require-mathcomp` (CI does) to turn that into a hard failure.
@@ -175,7 +179,7 @@ search-mathcomp.sh --about addnC             # About addnC.
 
 ### Graceful degrade
 
-If neither `rocqc` nor `coqc` is on `PATH`, the script prints the exact
+If neither `rocq` nor `coqc` is on `PATH`, the script prints the exact
 import + `Search ...` lines to paste into your IDE or the rocq-mcp
 `rocq_query` tool, and **exits 0**.
 
@@ -189,7 +193,7 @@ import + `Search ...` lines to paste into your IDE or the rocq-mcp
 
 ## `parse-coqc-errors.py`
 
-Stdlib-only Python 3 classifier: reads coqc/rocqc error output from a
+Stdlib-only Python 3 classifier: reads coqc/rocq error output from a
 file arg or stdin (default and `-emacs` location formats, plus multi-line
 `line L, column C, line L2, column C2` spans) and emits a JSON list of
 `{file, line, col, end_line, errorType, message}`.
@@ -257,7 +261,7 @@ commands, and compiles the copy (never mutates your source).
 
 ### Graceful degrade
 
-No `rocqc`/`coqc` on `PATH` -> prints the `Print Assumptions <name>.`
+No `rocq`/`coqc` on `PATH` -> prints the `Print Assumptions <name>.`
 lines to run manually and **exits 0** (never blocks).
 
 ### Exit codes (CI-usable)
