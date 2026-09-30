@@ -3,7 +3,7 @@
 The `mathcomp.algebra_tactics` package (*Reflexive
 tactics for algebra, revisited*, ITP 2022) provides reflexive
 decision procedures — `ring`, `field`, `lra`, `nra`, `psatz` — that
-work directly on the math-comp algebraic hierarchy (`comRingType`,
+work directly on the math-comp algebraic hierarchy (`comPzRingType`,
 `fieldType`, `realDomainType`, `realFieldType`) without `Add Ring` /
 `Add Field` declarations. The companion `mathcomp.zify` package
 extends Coq stdlib's `lia`/`nia` so they accept goals stated with
@@ -47,19 +47,26 @@ mathcomp-specific `Zify*Op` instances — once it is in scope, plain
 no separate `lqa` / `nqa` tactic in `algebra_tactics`: rationals are
 handled uniformly by `lra` / `nra` because `rat : realFieldType`.
 
-**Naming note (mathcomp 2.5+):** the canonical HB short names for
-the carrier structures are `comPzSemiRingType` and `comPzRingType`
-(the `Pz` = "possibly-zero characteristic"). The legacy
-`comSemiRingType` / `comRingType` are aliases and still resolve;
-this section uses the legacy names for prose readability, but
-either form is correct in code. The same `Pz` distinction appears
-for `nmodType` / `pzNmodType`, `zmodType` / `pzZmodType`, etc.
+**Naming note (mathcomp ≥ 2.4):** `semiRingType`, `ringType`,
+`comSemiRingType`, `comRingType` (and the `sub*RingType` variants)
+are `(only parsing)` notations **deprecated since mathcomp 2.4.0**
+(`algebra/ssralg.v:7081` for `ringType`, `algebra/ssralg.v:7087` for
+`comRingType`); each use prints a warning in category
+`deprecated-syntactic-definition-since-mathcomp-2.4.0`. They parse
+as the **Nz** level (`ringType` is `nzRingType`, `comRingType` is
+`comNzRingType`), which carries `1 != 0` (`oner_neq0`), as the
+book-era `ringType` did (MCB §8.3). New code writes `comPzRingType`
+/ `comPzSemiRingType`: the weakest level, and all `ring` needs.
+`Pz` = *potentially zero*: `1` may equal `0` (the trivial ring is
+allowed); it says nothing about the characteristic. Use
+`comNzRingType` only when the proof needs `1 != 0`. Level choice:
+§36.2; old → new name table: §48.
 
 ### 45.2 The five tactics at a glance
 
 | Tactic | Carrier (minimum) | Decides | Side conditions | Source |
 |--------|-------------------|---------|-----------------|--------|
-| `ring` | `comPzSemiRingType` (alias: `comSemiRingType`) — `comPzRingType` (alias: `comRingType`) when subtraction is involved | polynomial equalities `p = q :> R` | none | `ring.v` l. 443 |
+| `ring` | `comPzSemiRingType` — `comPzRingType` when subtraction is involved (not the deprecated `comSemiRingType` / `comRingType`, §45.1) | polynomial equalities `p = q :> R` | none | `ring.v` l. 443 |
 | `field` | `fieldType` | rational equalities `p = q :> F` | "denominator `!= 0`"; `numFieldType` discharges integer constants | `ring.v` l. 453 |
 | `lra` | `realDomainType` (no `^-1`) / `realFieldType` (with `^-1`) | linear arithmetic over total order | none (constants only) | `lra.v` l. 403 |
 | `nra` | same as `lra` | nonlinear arithmetic via Positivstellensatz, complete only on small problems | none | `lra.v` l. 404 |
@@ -72,20 +79,25 @@ the existential search; `psatz` shells out to a SDP solver.
 
 ### 45.3 `ring` and `field`: when each fits
 
-`ring` closes any polynomial identity over a `comRingType` /
-`comSemiRingType` (or any structure that bundles one — `int`, `rat`,
-`nat`, `Z`, abstract `R : comRingType`, products, polynomials). It
-*does not* know about `^-1`:
+`ring` closes any polynomial identity over a `comPzRingType` /
+`comPzSemiRingType` (or any structure that bundles one — `int`,
+`rat`, `nat`, `Z`, abstract `R : comPzRingType`, products,
+polynomials). It *does not* know about `^-1`:
 
 ```coq
+From mathcomp Require Import all_boot all_order all_algebra.
+From mathcomp.algebra_tactics Require Import ring.
+Import GRing.Theory.
+Local Open Scope ring_scope.
+
 (* RIGHT -- pure polynomial identity *)
-Goal forall (R : comRingType) (a b : R),
+Goal forall (R : comPzRingType) (a b : R),
     (a + b) ^+ 2 = a ^+ 2 + b ^+ 2 + 2%:R * a * b.
 Proof. by move=> R a b; ring. Qed.
 
 (* WRONG -- ring rejects: x^-1 is not a ring operation *)
 Goal forall (F : fieldType) (x : F), x != 0 -> x * x^-1 = 1.
-Proof. move=> F x x_neq0; Fail ring. Abort.
+Proof. move=> F x x_neq0. Fail ring. Abort.
 
 (* RIGHT -- field handles ^-1 and emits the nonzero side condition *)
 Goal forall (F : fieldType) (x : F), x != 0 -> x * x^-1 = 1.
@@ -102,11 +114,11 @@ form uses each `H : monomial = polynomial` as an oriented rewrite,
 the same way `ring: H` does.
 
 Hypothesis form (matches §34's bigops convention of single-rewrite
-fold):
+fold; same preamble as the block above):
 
 ```coq
 (* ring: t1 ... tn -- prove a polynomial identity modulo monomial eqs *)
-Goal forall (R : comRingType) (a b : R),
+Goal forall (R : comPzRingType) (a b : R),
     2%:R * a * b = 30%:R -> (a + b) ^+ 2 = a ^+ 2 + b ^+ 2 + 30%:R.
 Proof. by move=> R a b H; ring: H. Qed.
 ```
@@ -165,7 +177,8 @@ mentions non-arithmetic facts (`lra_examples.v` l. 87-91).
 `'I_n` ordinals — fold or destruct those before `lia`.
 
 ```coq
-From mathcomp Require Import all_ssreflect zify.
+From mathcomp Require Import all_boot ssralg ssrnum ssrint intdiv.
+From mathcomp Require Import zify.
 
 Lemma odd_add (n m : nat) : odd (m + n) = odd m (+) odd n.
 Proof. lia. Qed.
@@ -184,7 +197,7 @@ the goal mixes both — rare in mathcomp code, common when interfacing
 with VST or stdlib `ZArith`.
 
 What `zify` does *not* cover: `rat` (use `lra` instead, `rat` is a
-`realFieldType`), `realType`, `R : ringType` for abstract `R`, and
+`realFieldType`), `realType`, `R : pzRingType` for abstract `R`, and
 finite types `'I_n`. For `ordinal` arithmetic, lift through
 `val : 'I_n -> nat` first and then `lia` (compare §40.7 on
 cardinality lemmas).
@@ -194,7 +207,7 @@ cardinality lemmas).
 ```
 Goal head is `_ = _` or `_ != _` (no order).
 
-  Carrier is a comRingType / comSemiRingType (no `^-1`)?
+  Carrier is a comPzRingType / comPzSemiRingType (no `^-1`)?
     -> ring                                      (45.3)
   Carrier is a fieldType, has `^-1`?
     -> field                                     (45.3)
@@ -219,9 +232,9 @@ or a Boolean / Prop combination thereof.
     rat : realFieldType                -> lra / nra
     rat as a Q-coefficient?            -> ratr ... ; lra  (45.4)
 
-  Carrier is an abstract ringType (not com)?
+  Carrier is an abstract pzRingType (not com)?
     -> no decision procedure: rewrite by hand or strengthen
-       the hypothesis to comRingType.
+       the hypothesis to comPzRingType.
 ```
 
 ### 45.7 Side conditions and preprocessing
@@ -279,10 +292,15 @@ the closing into one step.
    `case: i => i hi` to expose the underlying `nat` and the bound,
    then `lia`.
 6. **`ring` on a `seq T` or any non-ring** — error
-   `"Unable to unify ... with comSemiRingType"`. This is the §35
-   forgetful-inheritance trap: a `Definition X := T.` over a
-   `comRingType` *breaks* the canonical structure. Use `Notation`
-   or `HB.instance Definition _ := X.copy ...`.
+   `Cannot find a declared nmodType` (no algebraic structure at all)
+   or `Cannot find a declared comRingType ... with
+   "GRing.ComPzRing.sort ?e0"` (a ring that is not commutative, e.g.
+   `'M[int]_2`). The carrier has no commutative-ring instance: prove
+   the identity by hand or state it on a commutative carrier. A
+   transparent alias is *not* the cause: after `Definition X := int.`,
+   `ring` still closes `a * b = b * a` for `a b : X` (unification
+   unfolds `X`). Aliases matter once they get instances of their own
+   (§35.5).
 
 ### 45.9 Common pitfalls
 
@@ -295,7 +313,7 @@ the closing into one step.
    `divn` / `modn` / `dvdn` / `\big[addn/0]_...` constants /
    `Order.le` over `nat`. Reviewers reject hand-rolled bool-to-Prop
    reflections that `zify` would close.
-3. **`Posz_inj` does not exist (cf. §41.7).** Inside `lia`, this is
+3. **`Posz_inj` does not exist (cf. §41.8).** Inside `lia`, this is
    moot — `zify` reifies `Posz n` as `Z.of_nat n`. Outside,
    `case`/`congr` are the right tools.
 4. **Calling `field` when the goal has only `+` / `*` / `-` / `^+`.**
@@ -313,15 +331,22 @@ the closing into one step.
    The reflective preprocessor sees `y`, not the original
    expression, and so does not know `y != 0`. Either avoid `set`
    on a denominator, or pass the equation to `field: H` so the
-   rewriting fires after reification.
+   rewriting fires after reification. (`set` semantics: §30.8.)
 7. **`nra` as a first-line tactic.** Reviewers (on the
    algebra-tactics tracker) ask: *try `lra` first*. A goal that
    was secretly linear should not be closed with the heavier
    tactic, both for performance and for proof readability.
 8. **Mixing `Z` (stdlib) and `int` (mathcomp) in the same goal.**
-   `lia` after `zify` works on either, but reviewers (cf. §41.7)
+   `lia` after `zify` works on either, but reviewers (cf. §41.8)
    prefer mathcomp-pure goals. If you need both, `ssrZ.v` provides
    `int_of_Z` / `Z_of_int` and the relevant cancellation lemmas.
+9. **Deprecated structure name in a signature.** `R : comRingType`
+   (or `ringType`, `comSemiRingType`, `semiRingType`) still compiles,
+   with a deprecation warning, and silently asks for `1 != 0`, so the
+   lemma no longer applies to trivial rings. Reviewer check: no
+   structure name deprecated since mathcomp 2.4. Write
+   `comPzRingType` / `pzRingType`, or the `Nz` name when the proof
+   uses `1 != 0` (§45.1; full table §48).
 
 ### 45.10 Quick decision flow
 
@@ -352,7 +377,7 @@ What is the import line?
 
 Is the carrier hypothesis the weakest one?
 
-  ring    <- comSemiRingType (or comRingType for subtraction)
+  ring    <- comPzSemiRingType (or comPzRingType for subtraction)
   field   <- fieldType (numFieldType to drop integer obligations)
   lra     <- realDomainType (no ^-1) | realFieldType (with ^-1)
   nra     <- same as lra
@@ -402,9 +427,8 @@ Is the carrier hypothesis the weakest one?
 - §11 (the `n` / `z` / `q` carrier-suffix convention),
   §34 (bigops — `ring` plays the same role for polynomial
   identities that `big_morph` plays for sums),
-  §35 (forgetful inheritance — bare `Definition` over a `ringType`
-  breaks `ring`/`field`/`lra` instance resolution exactly as it
-  breaks `nbhs`),
+  §35 (forgetful inheritance — a transparent alias matters only once it
+  carries instances of its own, §35.5; see §45.8 #6),
   §36 (weakest-structure rule — `realDomainType` over `realFieldType`
   over `realType` whenever each suffices),
   §41 (`int` / `rat` — the carrier types most often combined with

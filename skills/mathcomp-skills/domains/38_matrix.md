@@ -22,6 +22,8 @@ section codifies the canonical idioms.
 | `\det`, `det_mulmx` | Leibniz determinant; `\det (A *m B)` factor | §38.2, §38.7 |
 | `mulmx_block` | expand a 2-by-2 block product | §38.6 |
 | `trmx` / `_^T`, `trmxK` | transpose and its involution | §38.2 |
+| `castmx`, `castmxE` | bridge sizes that are only propositionally equal | §38.10 |
+| `\tr` / `mxtrace`, `mxtrace_mulC` | trace; `\tr (A *m B) = \tr (B *m A)` (commutative `R`) | §38.2, §38.7 (MCB §7.8) |
 
 ### 38.1 Reading the notation
 
@@ -107,6 +109,15 @@ Spot-checked against `mathcomp/algebra/matrix.v` in `rocq-9.1`.
 | `adj1` (l. 3639) | `\adj 1%:M = 1%:M` |
 | `cofactor` (l. 3379) | the (i, j) cofactor |
 | `unitmx`, `invmx` (l. 3718) | invertibility predicate and inverse |
+| `mxtrace` (l. 2067, notation `\tr` l. 2118) | trace `\sum_i A i i`, over any `nmodType` |
+| `mxtrace_tr` (l. 2070) | `\tr A^T = \tr A` |
+| `mxtrace0`, `mxtraceD` (l. 2084, 2085) | additive (instance l. 2081: `raddf*` lemmas apply) |
+| `mxtraceZ` (l. 2738) | `\tr (a *: A) = a * \tr A` (scalable instance l. 2741: `linearZ`) |
+| `mxtrace_scalar` (l. 2090), `mxtrace1` (l. 2736) | `\tr a%:M = a *+ n`; `\tr 1%:M = n%:R` |
+| `mxtrace_diag` (l. 2087), `trace_mx11` (l. 2099) | `\sum_j D 0 j`; `\tr A = A 0 0` for `'M_1` |
+| `mxtrace_block` (l. 2102) | `\tr (block_mx Aul Aur Adl Adr) = \tr Aul + \tr Adr` |
+| `mxtrace_mulC` (l. 3284) | `\tr (A *m B) = \tr (B *m A)`, `R : comPzSemiRingType` |
+| `mxtrace_mxblock`, `mxtrace_mxdiag` (l. 4999, 5023) | trace of `\mxblock` / `\mxdiag` |
 
 ### 38.3 `apply/matrixP` for entry-wise equality
 
@@ -215,6 +226,42 @@ A *m \adj A = (\det A)%:M.
 \adj A *m A = (\det A)%:M.
 ```
 
+**Trace** (MCB §7.8, the book's running example). `mxtrace_mulC`
+needs a commutative carrier (`R : comPzSemiRingType`, so any
+`comRingType` / `fieldType`); over a bare `pzRingType` it does not
+apply. Never replay the book's proof (MCB §7.8.1) -- cite the lemma:
+
+```coq
+From mathcomp Require Import all_boot all_algebra.
+Import GRing.Theory.
+Local Open Scope ring_scope.
+
+Section TraceDemo.
+Variable R : comPzSemiRingType.
+
+(* WRONG -- the MCB 7.8.1 proof, reproved by hand. *)
+Lemma trM_hand m n (A : 'M[R]_(m, n)) B : \tr (A *m B) = \tr (B *m A).
+Proof.
+gen have trM, trAB : m n A B / \tr (A *m B) = \sum_i \sum_j A i j * B j i.
+  by rewrite /mxtrace; apply: eq_bigr => i _; rewrite mxE.
+rewrite trAB trM exchange_big /=.
+by do 2!apply: eq_bigr => ? _; rewrite mulrC.
+Qed.
+
+(* RIGHT *)
+Lemma trM m n (A : 'M[R]_(m, n)) B : \tr (A *m B) = \tr (B *m A).
+Proof. exact: mxtrace_mulC. Qed.
+
+(* Additivity / scaling: the named lemma, or the instance lemma. *)
+Lemma trD n (A B : 'M[R]_n) : \tr (A + B) = \tr A + \tr B.
+Proof. exact: mxtraceD. Qed.        (* or: exact: raddfD *)
+
+(* Entry level: unfold the trace, then open each builder with mxE. *)
+Lemma trZ n a (A : 'M[R]_n) : \tr (a *: A) = \sum_i a * A i i.
+Proof. by rewrite /mxtrace; apply: eq_bigr => i _; rewrite mxE. Qed.
+End TraceDemo.
+```
+
 For `mxalgebra.v` (`mathcomp/algebra/mxalgebra.v`):
 
 | Lemma | What it does |
@@ -252,7 +299,94 @@ finite-dimensional vector-space structures (the `vectType` HB
 hierarchy, see §35), not concrete row / column vectors. Concrete row
 vectors are `'rV[R]_n`, defined and operated on in `matrix.v`.
 
-### 38.10 Common pitfalls
+### 38.10 Dimension casts (`castmx`, `conform_mx`)
+
+Sizes live in the type, and `=` needs *convertible* size indices:
+`'M_(m, 0 + n)` already is `'M_(m, n)` (`addn` recurses on its left
+argument). `'M_(m, n1 + (n2 + n3))` and `'M_(m, n1 + n2 + n3)`, or
+`'M_(m, n + 0)` and `'M_(m, n)`, are different types whose indices are
+only propositionally equal (MCB §7.8.3). Bridge them with an explicit
+cast along a pair of size equalities, never by rewriting the index.
+
+Cast API (`mathcomp/algebra/matrix.v`):
+
+| Lemma / definition | Statement / use |
+|--------------------|-----------------|
+| `castmx` (l. 389) | `castmx (eq_m, eq_n) A : 'M_(m', n')` for `A : 'M_(m, n)` |
+| `conform_mx` (l. 393) | `conform_mx B A`: `A` in `B`'s shape if sizes agree, else `B` |
+| `castmx_id` (l. 546) | a cast along any `(m = m) * (n = n)` pair is the identity |
+| `castmx_comp` (l. 549) | two casts fuse into one along `etrans` |
+| `castmxK`, `castmxKV` (l. 557, 561) | `cancel` pairs: cast, then cast back along `esym` |
+| `castmx_sym` (l. 566) | move a cast to the other side of an equation |
+| `eq_castmx` (l. 570) | proof irrelevance: `castmx e =1 castmx e'` |
+| `castmxE` (l. 577) | `castmx e A i j = A (cast_ord _ i) (cast_ord _ j)` |
+| `conform_mx_id` (l. 584) | same shape: `conform_mx B A = A` |
+| `nonconform_mx` (l. 587) | a size differs: `conform_mx B A = B` |
+| `conform_castmx` (l. 591) | `conform_mx B (castmx e A) = conform_mx B A` |
+| `trmx_cast` (l. 602) | `(castmx e A)^T = castmx (e.2, e.1) A^T` |
+| `cast_row_mx`, `cast_col_mx` (l. 879, 884) | push a cast on the shared dimension inside `row_mx` / `col_mx` |
+| `row_mxA`, `col_mxA`, `block_mxA` (l. 890, 908, 1101) | associativity, already stated with a cast on the RHS |
+
+Rules:
+
+1. **State size-shifting identities with `castmx` on one side only**,
+   as `row_mxA` does. Move the cast across with `castmx_sym` or
+   `apply: (canRL (castmxKV _ _))`.
+2. **Never rewrite a size index.** `rewrite addn0` on a goal whose
+   *types* mention `n + 0` fails with `Dependent type error in rewrite
+   of (fun _pattern_value_ : nat => ...)`.
+3. **Prove cast equations entrywise:** `apply/matrixP => i j; rewrite
+   castmxE !mxE`, then remove `cast_ord` with `cast_ord_id`
+   (boot/fintype.v:1808) or by comparing values (`val_inj`: `cast_ord`
+   does not change the underlying `nat`).
+4. **Eliminate a cast over an equality between variables** as matrix.v
+   does: `do [case: e; case: m2 /; case: n2 /] in A *` (generalize the
+   dependents with `in A *`, §27.10).
+5. **Definitions that need the proof** match on `n =P m` with
+   `ReflectT e` (§36.3); `conform_mx` is the ready-made instance for
+   both sizes. Reason about them with `case: eqP`.
+6. Tuples follow the same pattern with `tcast` (boot/tuple.v:135, §46).
+
+```coq
+From mathcomp Require Import all_boot all_algebra.
+
+Lemma size_rw (R : Type) m n (A B : 'M[R]_(m, n + 0)) : A = B.
+Proof.
+(* WRONG -- n + 0 occurs in the types of A and B:
+   "Dependent type error in rewrite of (fun _pattern_value_ ...". *)
+Fail rewrite addn0.
+Abort.
+
+(* RIGHT -- the cast sits on one side (MCB §7.8.3; this is row_mxA). *)
+Lemma rmxA (R : Type) m n1 n2 n3 (A1 : 'M[R]_(m, n1))
+    (A2 : 'M_(m, n2)) (A3 : 'M_(m, n3)) :
+  row_mx A1 (row_mx A2 A3) =
+    castmx (erefl m, esym (addnA n1 n2 n3)) (row_mx (row_mx A1 A2) A3).
+Proof. exact: row_mxA. Qed.
+```
+
+Entrywise proof, and elimination of a variable size equality:
+
+```coq
+From mathcomp Require Import all_boot all_algebra.
+Import GRing.Theory.
+Local Open Scope ring_scope.
+
+Lemma castmx_row0 (R : nmodType) m n (A : 'M[R]_(m, n)) :
+  castmx (erefl m, addn0 n) (row_mx A (0 : 'M_(m, 0))) = A.
+Proof.
+apply/matrixP => i j; rewrite castmxE mxE cast_ord_id.
+case: splitP => [j' /= eq_j | [] //].
+by congr (A _ _); apply: val_inj.
+Qed.
+
+Lemma castmxN (R : zmodType) m1 n1 m2 n2
+    (e : (m1 = m2) * (n1 = n2)) (A : 'M[R]_(m1, n1)) :
+  castmx e (- A) = - castmx e A.
+Proof. by do [case: e; case: m2 /; case: n2 /] in A *. Qed.
+```
+
+### 38.11 Common pitfalls
 
 ```coq
 (* WRONG -- entered a builder without opening it. *)
@@ -296,7 +430,12 @@ Lemma mul_trmx ... (* pattern: head_symbol is mul, tr_ is a modifier. *)
 Lemma trmx_mul A B : (A *m B)^T = B^T *m A^T.
 ```
 
-### 38.11 Quick decision flow
+- Sizes equal only propositionally (`'M_(m, n + 0)` vs `'M_(m, n)`,
+  reassociated sums): do not `rewrite addn0` / `addnA` on the index
+  (dependent type error). State the identity with `castmx` on one side
+  and prove it entrywise with `castmxE` (§38.10; MCB §7.8.3).
+
+### 38.12 Quick decision flow
 
 ```
 Goal involves a concrete matrix.
@@ -322,6 +461,11 @@ Goal involves a concrete matrix.
     -> det_mulmx for products
     -> expand_det_row / expand_det_col for Laplace expansion
 
+  Trace?
+    -> mxtraceD / mxtraceZ / mxtrace_tr / mxtrace1 / mxtrace_block
+    -> mxtrace_mulC for \tr (A *m B) = \tr (B *m A) (commutative R)
+    -> rewrite /mxtrace; apply: eq_bigr => i _; rewrite mxE
+
   Cramer / inverse?
     -> mul_mx_adj / mul_adj_mx
     -> invmx (only if A \in unitmx)
@@ -329,19 +473,25 @@ Goal involves a concrete matrix.
   Rank / kernel?
     -> mxrank0 / mxrank_eq0 / mxrank_tr / mxrank_ker
     -> mulmx_ker (kermx A *m A = 0)
+
+  Sizes differ only propositionally (n + 0 vs n, reassociated sums)?
+    -> castmx (eq_m, eq_n) on one side; never rewrite the index (§38.10)
+    -> apply/matrixP => i j; rewrite castmxE !mxE
+    -> do [case: e; case: m2 /; case: n2 /] in A *   (variable sizes)
 ```
 
-### 38.12 Sources
+### 38.13 Sources
 
 `mathcomp/algebra/matrix.v` (file header l. 270-282; lemma sites cited
-in 38.2-38.7 above; the `mxE` / `matrixP` pair l. 308-314 is the file's
-first theorem); `mathcomp/algebra/mxalgebra.v` (`mxrank` notation
-l. 2301; `kermx` / `cokermx` l. 214-215); MathComp Book chapter 8
+in 38.2-38.7 and 38.10 above; the `mxE` / `matrixP` pair l. 308-314 is
+the file's first theorem); `mathcomp/algebra/mxalgebra.v` (`mxrank`
+notation l. 2301; `kermx` / `cokermx` l. 214-215); MathComp Book chapter 8
 ("Linear Algebra"). The `apply/matrixP; rewrite !mxE` discipline is
 enforced throughout matrix.v itself; spot-check the proof of `mulmxA`
 (l. 2371) for the canonical form. Cross-ref §10 (naming), §11
 (suffixes), §13 (definition naming), §34 (bigops), §35 (HB
-hierarchy).
+hierarchy). Trace: MCB §7.8 (running example; MCB §7.8.1 is the
+`mxtrace_mulC` proof, algebra/matrix.v:3284).
 
 ---
 

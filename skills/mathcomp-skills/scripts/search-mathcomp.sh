@@ -7,8 +7,8 @@
 #   search-mathcomp.sh [opts] <query...>
 #
 # Options:
-#   -i "<import line>"   override the import line
-#                        (default: From mathcomp Require Import all_ssreflect.)
+#   -i "<import line>"   override the import line (default:
+#                        From mathcomp Require Import all_boot all_order.)
 #   -m <Module>          run `Search <query> inside <Module>.`
 #   --outside <Module>   run `Search <query> outside <Module>.`
 #   --about <NAME>       run `About <NAME>.` instead of Search
@@ -21,7 +21,7 @@
 # Query forms (anything coqc's Search accepts):
 #   name substring:   "_le"        -> Search "_le".
 #   term pattern:     "(?x + ?y)"  -> Search (?x + ?y).
-#   head pattern:     "_ (_ + _)"  -> Search _ (_ + _).
+#   conclusion only:  "concl:(_ + _)" -> Search concl:(_ + _).  (§37.1)
 #
 # Graceful degrade: if no rocq/coqc on PATH, print the exact `Search ...`
 # command to paste into your IDE / rocq-mcp `rocq_query` and exit 0.
@@ -31,7 +31,7 @@
 set -u
 
 PROG="$(basename "$0")"
-IMPORTS="From mathcomp Require Import all_ssreflect."
+IMPORTS="From mathcomp Require Import all_boot all_order."
 MODE="search"        # search | about | print
 INSIDE=""
 OUTSIDE=""

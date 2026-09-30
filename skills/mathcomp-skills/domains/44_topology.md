@@ -51,8 +51,10 @@ variable.
 (§35) that pair a filter with its proof:
 
 ```coq
-Structure filter_on T := FilterType { filter :> set_system T; _ : Filter filter }.
-Structure pfilter_on T := PFilterPack { pfilter :> _; _ : ProperFilter pfilter }.
+Structure filter_on T :=
+  FilterType { filter :> set_system T; _ : Filter filter }.
+Structure pfilter_on T :=
+  PFilterPack { pfilter :> _; _ : ProperFilter pfilter }.
 ```
 (`filter.v` 458-475). Use them when a lemma takes a *filter as a
 value*; use the `Filter F` / `ProperFilter F` typeclass when a lemma
@@ -159,7 +161,7 @@ near-witness, the canonical shape is:
 Lemma foo (F : set_system R) (FF : Filter F) ... :
     \forall x \near F, P x.
 Proof.
-near=> x.                       (* introduces x : R, plus an opaque hypothesis *)
+near=> x.                       (* introduces x : R and an opaque hypothesis *)
   ...
   by near: x; apply: cvg_dist; rewrite // subr_gt0.
 Unshelve. all: end_near.        (* (modern) closes the existentials *)

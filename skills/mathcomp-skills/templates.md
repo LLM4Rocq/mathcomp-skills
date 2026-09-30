@@ -42,6 +42,10 @@ they are a starting harness so you don't waste time on the boilerplate.
 18. `closed A` / `open A` / `compact A` — topology predicates
 19. `p = q :> qbsHomType _ _ _` — QBS morphism equality
 20. `funext` / `f =1 g` — pointwise function equality
+21. `P n` / `P s` — induction (plain, generalized, strong, bounded, from the
+    right)
+22. `reflect P b` / `Equality.axiom` / boolean equality — prove a view
+23. `~~ b` / `x != y` / `~ P` — negation and contraposition
 
 A goal-shape → reference section cross-index is at the end.
 
@@ -417,7 +421,7 @@ rewrite (bigD1 (Ordinal hmn)) //=
   [X in _ <= X - _](bigD1 (Ordinal hmn)) //=.
 rewrite hdn /= mul0r add0r.
 ```
-And `analysis/mxpoly.v:525`:
+And `algebra/mxpoly.v:525`:
 ```coq
 rewrite (big_morph _ (fun p q => hornerM p q a) (hornerC 1 a)).
 ```
@@ -455,7 +459,7 @@ apply: eq_big => [i|i Pi]; first by <prove P i = Q i>.
 by rewrite <body equation>.
 ```
 
-**Example.** `analysis/ssralg.v:1281` —
+**Example.** `algebra/ssralg.v:1281` —
 ```coq
 apply: eq_bigr => i _; rewrite !mulrnAr !mulrA -exprS -subSn ?(valP i) //.
 ```
@@ -620,8 +624,73 @@ And `theories/coproduct_qbs.v:210`:
 HB.instance Definition _ := @isQBS.Build R (X + Y)%type Mx ax1 ax2 ax3.
 ```
 
-**Cross-references.** `reference.md` §15 (HB instance patterns),
-`reference.md` §35 (HB factories and multi-step inheritance).
+**Skeleton — fresh enumerated type (no factory, no axioms).** Encode the type
+into a known `finType` (usually `'I_n`, built with `inord`) and write a
+(partial) inverse. Prove `pcancel` (or `cancel` and use `can_type`; MCB
+§8.5, whose `windrose` example is adapted below), then copy the most
+derived structure in **one** line. That line also registers
+Equality/Choice/Countable.
+```coq
+From HB Require Import structures.
+From mathcomp Require Import all_boot.
+
+Inductive windrose : predArgType := N | S | E | W.
+Definition w2o (w : windrose) : 'I_4 :=
+  match w with N => inord 0 | S => inord 1 | E => inord 2 | W => inord 3 end.
+Definition o2w (o : 'I_4) : option windrose :=
+  match val o with
+  | 0 => Some N | 1 => Some S | 2 => Some E | 3 => Some W | _ => None end.
+Lemma w2oK : pcancel w2o o2w.
+Proof. by case; rewrite /o2w /= inordK. Qed.
+HB.instance Definition _ := Finite.copy windrose (pcan_type w2oK).
+
+Lemma card_windrose : #|windrose| = 4.
+Proof.
+rewrite -[RHS]card_ord; apply: (bij_eq_card (f := w2o)).
+exists (fun o => odflt N (o2w o)) => [w|o]; first by rewrite w2oK.
+by apply: val_inj; case: o => -[|[|[|[|m]]]] //= _; rewrite inordK.
+Qed.
+```
+- Get `#|T|` from `bij_eq_card` + `card_ord`. Never unfold `enum`.
+- Do not chain `Equality.copy`, `Choice.copy`, … before `Finite.copy`.
+  The `redundant-canonical-projection` warnings from the single copy line
+  are harmless. Full rules: `reference.md` §36.12.
+- `CanIsFinite`/`PCanIsFinite` on a fresh type: ill-typed (they need an
+  existing `countType`). On a type that is already a `countType`, only the
+  ascribed form works (finmap/finmap.v:2275, algebra/qpoly.v:130):
+
+  | WRONG | RIGHT |
+  |---|---|
+  | `HB.instance Definition _ := CanIsFinite fK.` | `HB.instance Definition _ : isFinite T := CanIsFinite fK.` |
+
+  The WRONG line warns `non forgetful inheritance detected` +
+  `HB: no new instance is generated`, and `T` stays non-`finType`.
+  Default for a fresh type remains `Finite.copy T (can_type fK)`.
+
+**Skeleton — sub-type (value + bool invariant).** Declare the record
+`: predArgType` so that `#|S|` typechecks. Give `[isSub for proj]` first,
+then transfer **one** top structure `by <:` (MCB §7.2).
+```coq
+From HB Require Import structures.
+From mathcomp Require Import all_boot.
+
+Record evn : predArgType := Evn { evv :> nat; _ : ~~ odd evv }.
+HB.instance Definition _ := [isSub for evv].
+HB.instance Definition _ := [Countable of evn by <:].
+
+Record b3 : predArgType := B3 { b3v : 'I_3; _ : b3v != ord0 }.
+HB.instance Definition _ := [isSub for b3v].
+HB.instance Definition _ := [Finite of b3 by <:].
+Check #|b3|.
+```
+The `projection-no-head-constant` warning on `isSub.Sub_rect` is benign.
+Never hand-prove `Equality.axiom` for a sub-type. `[isNew for …]` and
+`[isSub of S for …]` are covered in `reference.md` §36.13.
+
+**Cross-references.** `reference.md` §15 (HB instance patterns; its
+"Instance hygiene" names the carrier and every axiom), `reference.md` §35 (HB factories and multi-step inheritance),
+`reference.md` §36.12 (copy along a (p)cancel), `reference.md` §36.13
+(sub-types).
 
 ---
 
@@ -635,8 +704,9 @@ pi * (y - 1/2) / pi + 1/2 = y :> R
 
 **Strategy.** In order of preference:
 
-1. **`ring`** — if `R` is a `comRingType` and the identity is purely
-   commutative-ring (no inverses, no `^-1`).
+1. **`ring`** — if `R` is a `comPzRingType` (the deprecated `comRingType`
+   still parses, as `comNzRingType`; `reference.md` §36.2) and the identity
+   is purely commutative-ring (no inverses, no `^-1`).
 2. **`field`** — if there are inverses; the tactic generates side conditions
    `_ != 0` which you discharge afterwards (`by field; exact: hS.` or
    similar).
@@ -706,11 +776,11 @@ by rewrite addrC (exprDn_comm n (commr_sym (commr1 x))).
 rewrite (reindex (fun (ij : 'I_n * 'I_n) => ij.1 + ij.2)) /=.
 ```
 
-**Example.** `analysis/ssralg.v:3003` —
+**Example.** `algebra/ssralg.v:3003` —
 ```coq
 Proof. by rewrite exprDn !big_ord_recr big_ord0 /= add0r mulr1 mul1r. Qed.
 ```
-And `analysis/ssralg.v:1287`:
+And `algebra/ssralg.v:1287`:
 ```coq
 rewrite addrC (exprDn_comm n (commr_sym (commr1 x))).
 ```
@@ -732,6 +802,35 @@ arbitrary `n`, induct on the **value** of `i` via `case: i => m hm` and use
 `leqVgt` / `ltnP` / `ord_inj` / `val_inj`. To enumerate use `\sum_(i : 'I_n)
 …` reductions or `big_ord_recl` / `big_ord_recr`. To prove two ordinals
 equal, use `apply: val_inj`.
+
+**Rule.** If you only need the bound, use `ltn_ord i : i < n`. Do not
+write `case: i => m hm` for that. Destruct only when you induct on the
+value or split on small cases.
+
+| Need | Term / lemma | Result |
+|---|---|---|
+| the bound | `ltn_ord i` | `i < n` |
+| equal values ⇒ equal ordinals | `ord_inj` (= `val_inj`) | `injective (@nat_of_ord n)` |
+| move along `e : m = n` | `cast_ord e i` (`cast_ord_id`) | `'I_n` |
+| embed, `le : n <= m` | `widen_ord le i` | `'I_m` |
+| skip index `h : 'I_n` | `lift h i`, `i : 'I_n.-1` | `'I_n`, value `bump h i` |
+| first / last | `ord0`, `ord_max` | `'I_n.+1`, values `0` / `n` |
+
+Full ordinal API (`val_enum_ord`, `mem_ord_enum`, `enum_rank`/`enum_val`):
+`domains/46_tuple_perm_binomial.md` §46.2.
+```coq
+From mathcomp Require Import all_boot.
+
+Lemma ex_ord n (i : 'I_n) : i < n.
+Proof. exact: ltn_ord. Qed.
+
+Lemma ord_eq n (i j : 'I_n) : nat_of_ord i = j -> i = j.
+Proof. exact: ord_inj. Qed.
+
+(* Verbose: case: i => m hm; by rewrite subn_gt0. *)
+Lemma subn_ord_gt0 n (i : 'I_n) : 0 < n - i.
+Proof. by rewrite subn_gt0 ltn_ord. Qed.
+```
 
 **Skeleton.**
 ```coq
@@ -758,8 +857,9 @@ And `mathcomp/boot/seq.v:1480`:
 by case: i => /= [_|i lt_i_s]; rewrite ?eqxx ?IHs ?(memPn s'x) ?mem_nth.
 ```
 
-**Cross-references.** `domains/46_tuple_perm_binomial.md` (ordinals and
-`big_ord_*`), `reference.md` §28 (idiomatic case analysis).
+**Cross-references.** `domains/46_tuple_perm_binomial.md` §46.2 (ordinal
+API), `reference.md` §34 (`big_ord_*`), `reference.md` §28 (idiomatic
+case analysis).
 
 ---
 
@@ -856,6 +956,36 @@ by ...
 apply/injectiveP => x y; rewrite !<equations> => /<inv-lemma>; apply: val_inj.
 ```
 
+**Equality of sub-type values.** Goal `u = v :> S` or `MkS x p1 = MkS x p2`,
+with `S` a sub-type that has an `isSub` instance.
+1. `apply: val_inj => /=` first. It reduces the goal to equal values
+   (MCB §7.2.1).
+2. Only without an `isSub` instance (raw record):
+   `by rewrite (bool_irrelevance p1 p2)` (bool invariant) or
+   `eq_irrelevance` (proofs of `x = y` in an `eqType`; MCB §7.2,
+   §7.2.2).
+3. Never `proof_irrelevance`/`Prop_irrelevance`: they add an axiom that
+   shows in `Print Assumptions`. Never `congr MkS` either: it fails when the
+   values differ only up to rewriting, and otherwise it just leaves `p1 = p2`.
+4. Invariant stated as a `Prop`? Redesign it as a `bool` predicate
+   (`reference.md` §36.13).
+```coq
+From HB Require Import structures.
+From mathcomp Require Import all_boot.
+
+Record evn : predArgType := Evn { evv :> nat; _ : ~~ odd evv }.
+HB.instance Definition _ := [isSub for evv].
+
+(* Default: compare the values. *)
+Lemma evn_ext' (x : nat) (p1 p2 : ~~ odd x) : Evn x p1 = Evn x p2.
+Proof. exact: val_inj. Qed.
+
+(* Values equal only up to rewriting: congr fails, val_inj works. *)
+Lemma evn_addn0 x (p1 : ~~ odd (x + 0)) (p2 : ~~ odd x) :
+  Evn (x + 0) p1 = Evn x p2.
+Proof. Fail congr Evn. by apply: val_inj => /=; rewrite addn0. Qed.
+```
+
 **Example.** `theories/standard_borel.v:131-136` —
 ```coq
 Lemma psiK : cancel phi psi.
@@ -880,7 +1010,7 @@ apply/injectiveP=> {u} x y; rewrite !ffunE.
 ```
 
 **Cross-references.** `reference.md` §27 (book-keeping), `domains/47_finfun.md`
-(injectivity proofs over `{ffun T -> R}`).
+(injectivity proofs over `{ffun T -> R}`), `reference.md` §36.13 (sub-types).
 
 ---
 
@@ -918,7 +1048,8 @@ apply: <Y>D; first exact: ...; exact: ...
 **Example.** `mathcomp/algebra/poly.v:1078, 1157, 989` —
 ```coq
 Lemma polyOver0 S : 0 \is a polyOver S.
-Lemma polyOver_deriv : {in polyOver ringS, forall p, p^`() \is a polyOver ringS}.
+Lemma polyOver_deriv :
+  {in polyOver ringS, forall p, p^`() \is a polyOver ringS}.
 Lemma polyOver_derivn :
   {in polyOver ringS, forall p n, p^`(n) \is a polyOver ringS}.
 ```
@@ -1065,11 +1196,350 @@ apply: funext => n.
 
 ---
 
+## 21. `P n` for `n : nat` / `P s` for `s : seq T` — induction
+
+**Goal shape**
+```coq
+Lemma foo n : P n.                (* n : nat *)
+Lemma bar (s : seq T) : Q s.      (* s : seq T *)
+```
+
+**Strategy.** (MCB §2.3.4, §3.7, §5.3, Part III cheat sheet; item 1's
+`; first by`: MCB Introduction.)
+
+1. **Plain.** `elim: n => [|n IHn]`: one slot per constructor, the IH is
+   the last name of the step slot. Use `elim: n => // n IHn` when `done`
+   closes the base case, or close it with `; first by …` (reference
+   §27.9).
+2. **Generalize first** every variable, hypothesis or accumulator that
+   must vary in the IH: `elim: n m => [|n IHn] m`, or
+   `elim: n => [|n IHn] in m *`, or `elim: s z => [|x s IHs] z`. The
+   names after `:` are pushed on the goal before `elim` and the pattern
+   re-introduces them (reference §27.10). Never `intros; induction n`.
+   Never hand-write a motive (`apply: (nat_ind (fun n => …))`).
+3. **Strong induction.** `elim/ltn_ind: n => n IHn` gives
+   `IHn : forall m, m < n -> P m` (`mathcomp/boot/ssrnat.v`, `ltn_ind`
+   (l. 492)). It replaces the book's `elim: n.+1 {-2}n (ltnSn n)`, which
+   uses a banned numeric occurrence selector (reference §8, "Replacing
+   numeric occurrence selectors").
+4. **Bounded / measure induction.** The ssrnat header (l. 453-483) calls
+   this idiom "preferable to the legacy idiom relying on numerical
+   occurrence selection". For a measure `Mxy` over `x y`:
+   - `have [n leMn] := ubnP Mxy; elim: n => // n IHn in x y leMn *.`
+     gives `leMn : Mxy < n.+1` and `IHn : forall x y, Mxy < n -> …`.
+   - `have [n] := ubnP Mxy; elim: n => // n IHn in x y * => /ltnSE-leMn.`
+     when you need exactly `leMn : Mxy <= n`.
+   - For a single nat: `have [m] := ubnP n; elim: m n => // m IHm n lt_nm`.
+   - `ubnP` (l. 484), `ltnSE` (l. 485). `ubnPleq`, `ubnPgeq`, `ubnPeq`
+     (l. 489-491) are for goals that mention the bound: `have [n defM] :=
+     ubnPleq Mxy` replaces `Mxy` by `n` in the goal and adds
+     `defM : Mxy <= n` (`>=` / `==` for the others; the book's
+     `case: (ubnPgeq m)`). Elimination on `n` leaves a `0` case to
+     dispatch. `ltn_ind` itself is proved this way (l. 492-496).
+   - The base case goes by `//` because its hypothesis `Mxy < 0` is
+     false.
+5. **seq.** `elim: s => [|x s IHs]`. From the right, use
+   `elim/last_ind: s => [|s x IHs]` (`mathcomp/boot/seq.v`, `last_ind`
+   (l. 368)). Its step is `P s -> P (rcons s x)`: finish with `rev_rcons`
+   (l. 913), `cats1` (l. 324), `size_rcons` (l. 336). The principle of
+   `seq` (= `list`) is `list_ind`, never `seq_ind`. For two seqs of equal
+   size, use `seq_ind2` (l. 981). Other eliminators: `elim/poly_ind` (§39,
+   needs `all_algebra`), `elim/big_rec2`, `elim/big_ind2` (reference
+   §34). seq lemma families: `domains/49_nat_seq.md` §49.5.
+6. **Sum / product indexed by n.** Peel the last term with `big_nat_recr` /
+   `big_ord_recr` or the first with `big_nat_recl` / `big_ord_recl`. The
+   `big_nat_rec*` side condition `m <= n` goes by `//` inside the chain
+   (reference §34.5).
+7. **Step-case pitfalls.**
+   - `addn`, `muln`, `subn` and `expn` are `simpl never`, so after `//=`
+     the step still shows `m.+1 + 0`. Rewrite with `addSn` / `addnS` /
+     `mulSn` (`domains/49_nat_seq.md` §49.4).
+   - The error `The LHS of IHm (m + 0) does not match any subterm of the
+     goal` is this symptom (errors.md §3).
+   - Consume a single-use IH with `rewrite -{}IHn`, which also clears it
+     (reference §27.11).
+8. **Arithmetic tail.** Upstream prefers rewrite chains (as in `gauss`
+   below). `zify; lia` is acceptable in project code (§45.5).
+
+**Skeleton.**
+```coq
+elim: n => [|n IHn] in m *.       (* plain; IHn : forall m, P n m *)
+  (* base case: by rewrite ... *)
+(* step: by rewrite <peel> IHn <arith>. *)
+
+elim/ltn_ind: n => n IHn.         (* strong: IHn : forall k, k < n -> P k *)
+have [k] := ubnP n; elim: k n => // k IHk n lt_nk.   (* bounded *)
+elim: s => [|x s IHs].            (* seq from the left: Q (x :: s) *)
+elim/last_ind: s => [|s x IHs].   (* seq from the right: Q (rcons s x) *)
+```
+
+**Example.** Upstream: `ltn_ind` is proved at `mathcomp/boot/ssrnat.v:494`
+by `have [n leMn] := ubnP M; elim: n => // n IHn in M leMn *.` The
+from-the-right idiom appears at `mathcomp/boot/seq.v:921`
+(`elim/last_ind: s => // s x IHs in n *.`) and at
+`mathcomp/boot/seq.v:3252` (`foldl_rev`, the model for `foldl_rev_ex`
+below). Self-contained versions follow (the `gauss` lemma is from
+MCB Introduction):
+```coq
+From mathcomp Require Import all_boot.
+
+Lemma gauss n : \sum_(0 <= i < n.+1) i = (n * n.+1) %/ 2.
+Proof.
+elim: n => [|n IHn]; first by rewrite big_nat1.
+rewrite big_nat_recr //= IHn addnC -divnMDl //.
+by rewrite mulnS muln1 -addnA -mulSn -mulnS.
+Qed.
+
+Lemma strong (P : nat -> Prop) :
+  (forall n, (forall m, m < n -> P m) -> P n) -> forall n, P n.
+Proof. by move=> ih n; elim/ltn_ind: n => n IH; apply: ih. Qed.
+
+Lemma even_or_odd n : exists k, n = k.*2 \/ n = k.*2.+1.
+Proof.
+elim/ltn_ind: n => -[|[|n]] IH; first by exists 0; left.
+  by exists 0; right.
+have [|k [->|->]] := IH n; first exact: leqW.
+  by exists k.+1; left; rewrite doubleS.
+by exists k.+1; right; rewrite doubleS.
+Qed.
+
+Lemma even_or_odd' n : exists k, n = k.*2 \/ n = k.*2.+1.
+Proof.
+have [m] := ubnP n; elim: m n => // m IHm [|[|n]] lt_nm.
+- by exists 0; left.
+- by exists 0; right.
+have [|k [->|->]] := IHm n; first by rewrite ltnS in lt_nm; exact: ltnW.
+  by exists k.+1; left; rewrite doubleS.
+by exists k.+1; right; rewrite doubleS.
+Qed.
+
+Lemma addn0' m : m + 0 = m.
+Proof. by elim: m => [|m IHm] //; rewrite addSn IHm. Qed.
+
+Lemma double_addnn n : n.*2 = n + n.
+Proof. by elim: n => // n IHn; rewrite doubleS addSn addnS -{}IHn. Qed.
+```
+And on `seq`, from the right:
+```coq
+From mathcomp Require Import all_boot.
+
+Lemma foldl_rev_ex (T R : Type) (f : R -> T -> R) z (s : seq T) :
+  foldl f z (rev s) = foldr (fun x y => f y x) z s.
+Proof.
+elim/last_ind: s z => [|s x IHs] z //.
+by rewrite rev_rcons /= -cats1 foldr_cat -IHs.
+Qed.
+
+Lemma size_rev' (s : seq nat) : size (rev s) = size s.
+Proof.
+by elim/last_ind: s => [//|s x IH]; rewrite rev_rcons /= IH size_rcons.
+Qed.
+```
+
+**Cross-references.** `reference.md` §27.9 (`first by`, selectors),
+§27.10 (generalizing, `in H *`), §27.11 (`{}H`), §29.9 (`/=` and
+`simpl never`), §34.5 (peeling), §8 (occurrence-selector translations);
+`domains/49_nat_seq.md` §49.4, §49.5; `phrasebook.md` §15 (induction
+rows); `errors.md` §3.
+
+---
+
+## 22. `reflect P b` / `Equality.axiom op` / `b1 = b2` between booleans — prove a view
+
+(MCB §5.1.2, §6.4–§6.6, Part III, cheat sheet)
+
+**Goal shape**
+```
+Lemma fooP x : reflect (<math def of foo x>) (foo x).
+Lemma eqfooP : Equality.axiom eqfoo.      (* for hasDecEq.Build *)
+Lemma bar : b1 = b2.                      (* b1 b2 : bool *)
+```
+
+**Strategy.**
+
+1. `apply: (iffP idP) => [hb | hP]` when `b` is atomic. Pick the base
+   view that already turns `b` into the nearest Prop:
+   - `(iffP V)` with `V` = `andP`, `orP`, `eqP`, `negP`, `allP`,
+     `hasP`, `eqnP`, … when `b` is a connective or an `==`;
+   - `apply: (equivP V)` when a Prop iff `P <-> Q` is at hand;
+   - `rewrite /foo` first when `foo` is a Definition that later `<-`
+     rewrites must see through.
+
+   The library does the same: `leP` at `mathcomp/boot/ssrnat.v:500`
+   (`iffP idP`), `inj_eqAxiom` at `mathcomp/boot/eqtype.v:758`
+   (`iffP eqP`).
+2. The two subgoals are `b -> P` and `P -> b`. Destructure in the
+   intro pattern: `[|[]->]`, `[k <-]`, `[[h1 h2] | hP]`.
+3. `b1 = b2` between booleans: `apply/idP/idP` when both sides are
+   atomic, otherwise `apply/V1/V2` (`apply/andP/orP`, `apply/idP/negP`:
+   `b1 = ~~ b2` becomes `b1 -> ~ b2` and `~ b2 -> b1`). To switch
+   views inside a rewrite chain: `rewrite (sameP V1 V2)`.
+4. Structural `Equality.axiom`: double induction, close all
+   mismatched constructors with `do ?[exact: ReflectT | exact: ReflectF]`,
+   then `case: (x =P y) => [<-|neq]` and `apply: (iffP (IH t))`.
+   `case: (x =P y)` is right **here** because the `ReflectF` branch
+   needs `x <> y`. This is the exception to the `eqVneq` preference of
+   reference.md §36.8. Library model: `eqseqP` at
+   `mathcomp/boot/seq.v:1088`.
+5. Naming and shape: suffix `P` (reference.md §11, §37.6). Keep the
+   boolean as the index so both `move=> /fooP` and `apply/fooP` work.
+   When a public `foo : T -> bool` has a natural Prop counterpart, ship
+   `fooP`. `Arguments fooP
+   {x}` is optional (reference.md §31).
+6. Pitfall: do not prove `reflect` on a non-closed boolean with
+   `case: b; constructor`; reviewers expect `iffP`. On closed small
+   booleans it is fine:
+   `Lemma myandP (a b : bool) : reflect (a /\ b) (a && b).`
+   `Proof. by case: a; case: b; constructor=> // -[]. Qed.`
+
+**Skeleton.**
+```
+(* reflect P b *)
+apply: (iffP idP) => [hb | hP].     (* or (iffP andP) => [[h1 h2] | hP] *)
+- (* b -> P *) ...
+- (* P -> b *) ...
+
+(* reflect Q b from V : reflect P b and P <-> Q *)
+by apply: (equivP V); split=> ...
+
+(* b1 = b2 *)
+apply/idP/idP => [h1 | h2].          (* or apply/V1/V2 *)
+
+(* Equality.axiom on an inductive *)
+elim=> [|x s IH] [|y t] /=; do ?[exact: ReflectT | exact: ReflectF].
+case: (x =P y) => [<-|neqxy]; last by apply: ReflectF => -[].
+by apply: (iffP (IH t)) => [<-|[]].
+```
+
+**Example.** Views proved with `iffP idP`:
+```coq
+From mathcomp Require Import all_boot.
+
+Definition le3 (n : nat) : bool := n <= 3.
+
+Lemma le3P n : reflect (exists k, n + k = 3) (le3 n).
+Proof.
+rewrite /le3; apply: (iffP idP) => [le_n3 | [k <-]].
+  by exists (3 - n); rewrite subnKC.
+exact: leq_addr.
+Qed.
+
+Lemma mulP m n : reflect (m = 0 \/ n = 0) (m * n == 0).
+Proof.
+apply: (iffP idP) => [|[]->]; rewrite ?muln0 //.
+by rewrite muln_eq0 => /orP[]/eqP; [left | right].
+Qed.
+```
+Structural `Equality.axiom`, and a boolean equation:
+```coq
+From mathcomp Require Import all_boot.
+
+Fixpoint eqlist (s1 s2 : seq nat) :=
+  match s1, s2 with
+  | [::], [::] => true
+  | x :: s, y :: t => (x == y) && eqlist s t
+  | _, _ => false end.
+
+Lemma eqlistP : Equality.axiom eqlist.
+Proof.
+elim=> [|x s IH] [|y t] /=; do ?[exact: ReflectT | exact: ReflectF].
+case: (x =P y) => [<-|neqxy]; last by apply: ReflectF => -[].
+by apply: (iffP (IH t)) => [<-|[]].
+Qed.
+
+Lemma bool_eq (b1 b2 : bool) :
+  (b1 -> ~ b2) -> (~ b2 -> b1) -> b1 = ~~ b2.
+Proof. by move=> h1 h2; apply/idP/negP. Qed.
+```
+
+**Cross-references.** `reference.md` §28.2 (spec `Variant`s for case
+analysis), §36.3 (`reflect` and the decidable-equality bridge), §36.7,
+§37.6 (`reflect` over `iff`); `phrasebook.md` §6.
+
+---
+
+## 23. `~~ b`, `x != y`, `~ P` — negation and contraposition
+
+(MCB §2.3.3, §4.2.1 for contraposition and the `ltnNge` / `leqNgt`
+normalisation; the letter codes and the `!=` / `Prop` variants are
+library material, not from the book.)
+
+**Goal shape**
+```
+~~ c        b -> c   (b c : bool)        x != y        ~ P
+```
+
+**Strategy.**
+
+1. With a hypothesis to contrapose against, apply the `contra*` lemma
+   whose letter code matches the shapes (first letter = given
+   hypothesis, second = goal; lookup table in `phrasebook.md` §16).
+   Normalise first: `rewrite ltnNge` turns `m < p` into
+   `~~ (p <= m)`; `rewrite -leqNgt` turns `~~ (m < p)` into `p <= m`.
+2. `apply: contraTN H => h` (older name `contraL`), with `H : b` and
+   goal `~~ c`: the goal becomes `~~ b` under `h : c`.
+3. `x != y`: `apply: contra_neq H` (`H : z1 != z2`, goal becomes
+   `x = y -> z1 = z2`) or `contraNneq H` (`H : ~~ b`, goal
+   `x = y -> b`). Prop negation: `contra_not` / `contraPnot`.
+4. No hypothesis to contrapose: `apply/negP => h` and derive a
+   contradiction.
+5. `False` in context, or an absurd constructor equation (`0 = n.+1`),
+   closes with `by []` (`by case` on the equation warns
+   `spurious-ssr-injection`; `phrasebook.md` §12).
+
+**Skeleton.**
+```
+rewrite ltnNge; apply: contraTN p_dv => le_pm.   (* goal: ~~ (p %| _) *)
+```
+
+**Example.**
+```coq
+From mathcomp Require Import all_boot.
+
+Lemma ex_contraTN m p : prime p -> p %| m`! + 1 -> m < p.
+Proof.
+move=> pp p_dv; rewrite ltnNge; apply: contraTN p_dv => le_pm.
+by rewrite dvdn_addr ?dvdn_fact ?prime_gt0 // gtnNdvd ?prime_gt1.
+Qed.
+
+Lemma ex_contra m p : prime p -> p %| m`! + 1 -> m < p.
+Proof.
+move=> pp; apply: contraTT; rewrite -leqNgt => lepm.
+by rewrite dvdn_addr ?dvdn_fact ?prime_gt0 // gtnNdvd ?prime_gt1.
+Qed.
+```
+WRONG/RIGHT, plus the `!=` and Prop forms:
+```coq
+From mathcomp Require Import all_boot.
+
+(* WRONG: unfold both negations by hand *)
+Lemma c3_hand m n : m * n != 0 -> m != 0.
+Proof.
+move=> h; apply/negP => /eqP m0; move/negP: h; apply.
+by rewrite m0 mul0n.
+Qed.
+
+(* RIGHT: the contra lemma whose letters match (N hyp, N goal) *)
+Lemma c3 m n : m * n != 0 -> m != 0.
+Proof. by apply: contraNN => /eqP ->; rewrite mul0n. Qed.
+
+Lemma succ_neq m n : m != n -> m.+1 != n.+1.
+Proof. by apply: contra_neq => -[]. Qed.
+
+Lemma not_lt_self n : ~ (n < n).
+Proof. by apply/negP; rewrite ltnn. Qed.
+```
+
+**Cross-references.** `phrasebook.md` §16 (letter-code table),
+`reference.md` §36.7, §37.11 (`Search "contra"`).
+
+---
+
 ## Cross-reference table — goal shape to reference / domain
 
 | #  | Goal shape                                  | `reference.md`       | `domains/*.md`                  |
 |----|---------------------------------------------|----------------------|---------------------------------|
-| 1  | `\forall x \near F, P x`                    | §26                  | `44_topology.md`                |
+| 1  | `\forall x \near F, P x`                    | §30.3                | `44_topology.md`                |
 | 2  | `_ --> _`, `cvg _`, `lim _ = _`             | §19                  | `44_topology.md`                |
 | 3  | `measurable_fun D f`                        | §19                  | `43_measure.md`                 |
 | 4  | `is_derive x v f f'`                        | §15                  | `42_derive.md`                  |
@@ -1079,16 +1549,19 @@ apply: funext => n.
 | 8  | `f = g :> {ffun T -> R}`                    | —                    | `47_finfun.md`                  |
 | 9  | `A = B :> set T`                            | §27                  | `40_finset.md`                  |
 | 10 | `A = B :> 'M[R]_(m,n)`                      | —                    | `38_matrix.md`                  |
-| 11 | `HB.instance Definition _ := …`             | §15, §35             | (cross-cutting)                 |
+| 11 | `HB.instance Definition _ := …`             | §15, §35, §36.12, §36.13 | (cross-cutting)             |
 | 12 | `p = q :> R` (ring identity)                | §29                  | `45_algebra_tactics.md`         |
 | 13 | `(x + y) ^+ n = …`                          | §34                  | `39_polynomial.md`, `46_…`      |
 | 14 | `P (i : 'I_n)`                              | §28                  | `46_tuple_perm_binomial.md`     |
 | 15 | `decidable P`, `P \/ ~P`                    | §36                  | `44_topology.md`                |
-| 16 | `injective f`, `cancel f g`                 | §27                  | `47_finfun.md`                  |
+| 16 | `injective f`, `cancel f g`                 | §27, §36.13          | `47_finfun.md`                  |
 | 17 | `f \is a Y` (HB predicate)                  | §15                  | `39_polynomial.md`              |
 | 18 | `closed A`, `open A`, `compact A`           | §19                  | `44_topology.md`, `43_measure.md`|
 | 19 | `f = g :> qbsHomType _ _ _`                 | §15                  | (project-specific)              |
 | 20 | `f = g :> A -> B`, `f =1 g`                 | §27, §29             | (cross-cutting)                 |
+| 21 | `P n`, `P s`                                | §27.10, §29.9, §8    | `49_nat_seq.md`                 |
+| 22 | `reflect P b`                               | §28.2, §36.3, §37.6  | (cross-cutting)                 |
+| 23 | `~~ b`, `x != y`                            | §36.7, §37.11        | `49_nat_seq.md`                 |
 
 ---
 
@@ -1103,7 +1576,11 @@ apply: funext => n.
 - **`Vandermonde` and other named binomial identities** — left out as a
   template because the proofs require domain-specific reindexings that don't
   fit a short skeleton. See `mathcomp/algebra/poly.v` and
-  `mathcomp/algebra/binomial.v` for the actual lemmas.
+  `mathcomp/boot/binomial.v` for the actual lemmas.
 - **QBS-specific morphism equality (§19)** is a stub: the QBS codebase does
   not yet have a settled `apply/Y_P; …` lemma for `qbsHomType`. When such a
   lemma is introduced, expand §19 with a real example.
+- **nat/seq lemma families** (`subnK`, `ltnS`, `nth_map`, `mem_cat`, …)
+  live in `domains/49_nat_seq.md`; §21 only gives the induction skeletons.
+  The book-to-2.5 translation of instance declarations (MCB `Canonical` /
+  `[eqMixin of …]` → `HB.instance`) is in `reference.md` §48.

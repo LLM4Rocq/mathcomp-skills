@@ -1,3 +1,6 @@
+[§3] sample.v:1	all_ssreflect deprecated since mathcomp 2.5: use all_boot (+ all_order) unless 2.4 compat is needed	From mathcomp Require Import all_ssreflect.
 [§9] sample.v:6	tactic spacing (drop space before :)	   erefl. Qed.
+[§22.5] sample.v:14	black-box automation: prefer case:, views and // steps	Proof. have {H}H : 3 = 3 by []. intuition. Qed.
+[§27.11] sample.v:14	duplicate clear {H}H: write {}H	Proof. have {H}H : 3 = 3 by []. intuition. Qed.
 [§32.1] sample.v:8	_is_ suffix on lemma - rename to E if equational	8:Lemma foo_is_zero : (0 : nat) = 0.
 [§47.4] sample.v:11	Definition : {ffun ...} := fun (use [ffun x => ...])	Definition g : {ffun 'I_3 -> nat} := fun i => 0....

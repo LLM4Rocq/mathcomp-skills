@@ -11,9 +11,33 @@
 # or Git Bash.
 # Patterns are heuristics — verify each finding before applying a
 # fix. The §25 detector in particular has a high false-positive rate
-# (~70-80%) on HB-heavy code; treat it as candidate-only.
+# (~70-80%) on HB-heavy code; treat it as candidate-only. The §3,
+# §22.5, §27.11, §28.1 and §36.2 tags are advisory (never blocking;
+# §22.5 and §28.1 are low precision).
 
 set -u
+
+# Shared awk helper for the advisory tags (§3, §22.5, §27.11, §28.1,
+# §36.2): code(s) returns the line with `(* ... *)` comments blanked,
+# tracking nested / multi-line comments in the global `cdepth`.
+# POSIX awk only (index/substr, no regex backreferences).
+AWK_CODE='
+function code(s,    out, i, j) {
+  out = ""
+  while (s != "") {
+    i = index(s, "*)"); j = index(s, "(*")
+    if (cdepth > 0) {
+      if (j > 0 && (i == 0 || j < i)) { cdepth++; s = substr(s, j + 2); continue }
+      if (i == 0) return out
+      cdepth--; s = substr(s, i + 2); out = out " "; continue
+    }
+    if (j == 0) return out s
+    out = out substr(s, 1, j - 1) " "
+    cdepth++; s = substr(s, j + 2)
+  }
+  return out
+}
+'
 
 if [ $# -eq 0 ]; then
   echo "usage: $0 <file.v> [<file.v> ...]" >&2
@@ -32,6 +56,19 @@ for f in "$@"; do
     printf "[§1] %s:%d\tline >80 chars (%d)\t%s...\n",
       file, NR, length, snippet
   }' "$f"
+
+  # ─── §3: deprecated umbrella `all_ssreflect` (advisory) ───
+  # all_ssreflect is deprecated since mathcomp 2.5.0; all_boot does not
+  # re-export order, so the replacement is all_boot (+ all_order). Keep
+  # it only in files that must also build on mathcomp 2.4.
+  # `all_ssreflect_compat` (mathcomp-classical >= 1.16) is not flagged.
+  awk -v file="$f" "$AWK_CODE"'
+    { c = code($0) }
+    c ~ /Require/ && c ~ /all_ssreflect([^A-Za-z0-9_]|$)/ {
+      printf "[§3] %s:%d\tall_ssreflect deprecated since mathcomp 2.5: use all_boot (+ all_order) unless 2.4 compat is needed\t%s\n",
+        file, NR, $0
+    }
+  ' "$f"
 
   # ─── §9: tactic spacing — `apply :`, `move :`, `case :`, `elim :` ───
   # House style: no space between the keyword and `:`. Excludes
@@ -123,6 +160,18 @@ for f in "$@"; do
     }
   ' "$f"
 
+  # ─── §22.5: black-box automation closers (advisory) ───
+  # auto / eauto / intuition / firstorder / tauto as whole words in
+  # code (comments blanked). Low precision: also fires in Ltac / Hint
+  # bodies and quoted strings.
+  awk -v file="$f" "$AWK_CODE"'
+    { c = code($0) }
+    c ~ /(^|[^A-Za-z0-9_'"'"'])(auto|eauto|intuition|firstorder|tauto)([^A-Za-z0-9_'"'"']|$)/ {
+      printf "[§22.5] %s:%d\tblack-box automation: prefer case:, views and // steps\t%s\n",
+        file, NR, $0
+    }
+  ' "$f"
+
   # ─── §24.1: candidate [the X of T] over canonical instances ───
   grep -nE "\[the [a-zA-Z0-9_ ]+ of " "$f" 2>/dev/null \
     | awk -F: -v file="$f" '{
@@ -201,6 +250,46 @@ for f in "$@"; do
     }
   ' "$f"
 
+  # ─── §27.11: duplicate clear `{H}H` (advisory) ───
+  # Rocq 9.1 warns [duplicate-clear,ssr]; write `{}H`. The identifier
+  # inside the braces must be non-empty, so the correct `{}H` is
+  # never flagged.
+  awk -v file="$f" -v q="'" "$AWK_CODE"'
+    {
+      c = code($0); s = c
+      while (match(s, "[{][A-Za-z_][A-Za-z0-9_" q "]*[}]")) {
+        id = substr(s, RSTART + 1, RLENGTH - 2)
+        s = substr(s, RSTART + RLENGTH)
+        nxt = substr(s, length(id) + 1, 2)
+        # `{q}q.+1` (clear, then push the term q.+1) is not a duplicate.
+        if (substr(s, 1, length(id)) == id &&
+            nxt !~ ("^([A-Za-z0-9_" q "]|[.][^[:space:]])")) {
+          printf "[§27.11] %s:%d\tduplicate clear {%s}%s: write {}%s\t%s\n",
+            file, NR, id, id, id, $0
+          break
+        }
+      }
+    }
+  ' "$f"
+
+  # ─── §28.1: `case: leP` / `case: ltP` without order (advisory) ───
+  # Very low precision. Without an order import, leP/ltP are the
+  # ssrnat reflect views (Prop branches); the nat case specs are
+  # leqP / ltnP / ltngtP. Skipped when the file imports an Order theory
+  # (`Import ... Order.TTheory` / `Order.Theory`): `case: leP` is then
+  # Order's spec. `all_order`, `ssrnum` or `Num.Theory` alone leave
+  # `leP` as ssrnat's view.
+  ordth='Import.*Order[.](T|POrder|Total|Lattice)?Theory'
+  if ! grep -qE "$ordth" "$f"; then
+    awk -v file="$f" -v q="'" "$AWK_CODE"'
+      { c = code($0) }
+      c ~ ("case:[[:space:]]*[(]?[[:space:]]*(leP|ltP)([^A-Za-z0-9_" q "]|$)") {
+        printf "[§28.1] %s:%d\tcase: leP/ltP on nat? use leqP / ltnP (verify carrier)\t%s\n",
+          file, NR, $0
+      }
+    ' "$f"
+  fi
+
   # ─── §32.1: _is_ in lemma name on what looks like an equation ───
   grep -nE "^Lemma [a-zA-Z_]+_is_[a-z]" "$f" 2>/dev/null \
     | awk -F: -v file="$f" '{
@@ -210,6 +299,28 @@ for f in "$@"; do
         printf "[§32.1] %s:%d\t_is_ suffix on lemma - rename to E if equational\t%s\n",
           file, ln, line
       }'
+
+  # ─── §36.2: deprecated ring-structure names (advisory) ───
+  # Deprecated since mathcomp 2.4.0 (algebra/ssralg.v, finalg.v,
+  # countalg.v): ringType, semiRingType, comRingType, comSemiRingType
+  # and their sub/fin/count prefixes. Case-sensitive whole tokens, so
+  # nzRingType, pzRingType, comNzRingType, unitRingType, ... never match.
+  # The name declared by a `Notation X :=` line is skipped.
+  awk -v file="$f" -v q="'" "$AWK_CODE"'
+    {
+      c = code($0); s = c
+      sub(/^[[:space:]]*Notation[[:space:]]+[A-Za-z0-9_]+/, "", s)
+      while (match(s, "[A-Za-z_][A-Za-z0-9_" q "]*")) {
+        tok = substr(s, RSTART, RLENGTH)
+        s = substr(s, RSTART + RLENGTH)
+        if (tok ~ /^(((sub|fin|count)(Com)?|com)(SemiRing|Ring)|semiRing|ring)Type$/) {
+          printf "[§36.2] %s:%d\tdeprecated %s (mathcomp 2.4): use the Pz form, or Nz if 1 != 0 is needed\t%s\n",
+            file, NR, tok, $0
+          break
+        }
+      }
+    }
+  ' "$f"
 
   # ─── §45.5: lia/nia without `Require Import zify` in the file ───
   # Stdlib lia accepts nat natively but does NOT reify divn/modn/dvdn/

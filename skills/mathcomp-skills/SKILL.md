@@ -1,6 +1,6 @@
 ---
 name: mathcomp-skills
-description: Use when writing or reviewing .v files that import `From mathcomp` or `From HB` — math-comp, mathcomp-analysis, Rocq style, ssreflect tactics, HB hierarchy builder, HB factory, forgetful inheritance, canonical structures, Arguments directives, lemma naming (mainSymbol_suffixes, abbreviation suffixes), intro patterns, case-analysis idioms (leP, ltgtP, eqVneq, altP), bigop, under eq_bigr, choice/decidability, eqType, choiceType, finType, boolp, classical reasoning, Search discipline, PR review prep against mathcomp/analysis, code cleanup. Also covers the rocq-mcp tools for live proof inspection.
+description: Use when writing or reviewing .v files that import `From mathcomp` or `From HB` — math-comp, mathcomp-analysis, Rocq style, ssreflect tactics, HB hierarchy builder, HB factory, forgetful inheritance, canonical structures, Arguments directives, lemma naming (mainSymbol_suffixes, abbreviation suffixes), intro patterns, case-analysis idioms (leqP, ltngtP, leP/ltgtP, eqVneq, altP), bigop, under eq_bigr, choice/decidability, eqType, choiceType, finType, boolp, classical reasoning, Search discipline, PR review prep against mathcomp/analysis, code cleanup. Also covers the rocq-mcp tools for live proof inspection.
 allowed-tools: Bash(grep *), Bash(find *), Bash(awk *), Bash(sed *), Bash(make *), Read, Glob, mcp__rocq-mcp__rocq_start, mcp__rocq-mcp__rocq_compile, mcp__rocq-mcp__rocq_compile_file, mcp__rocq-mcp__rocq_check, mcp__rocq-mcp__rocq_query, mcp__rocq-mcp__rocq_step_multi, mcp__rocq-mcp__rocq_assumptions, mcp__rocq-mcp__rocq_notations, mcp__rocq-mcp__rocq_toc, mcp__rocq-mcp__rocq_verify, mcp__rocq-mcp__rocq_diag
 ---
 
@@ -23,8 +23,8 @@ resolve but `file.v:line` numbers may drift — run
 
 ## Files in this skill
 
-- **`reference.md`** — core style guide §1-§37 (~3270 lines). Read
-  this for general rules:
+- **`reference.md`** — core style guide §1-§37 + §48 migration map
+  (~6100 lines). Read this for general rules:
   - **§1-§21**: Core conventions (line length, naming, proof style,
     HB instances, deprecation, visibility, analysis-specific naming,
     changelog, common review rejections).
@@ -33,11 +33,13 @@ resolve but `file.v:line` numbers may drift — run
   - **§33**: PR Citation Index (with `[topic ≠ rule]` caveats).
   - **§34-§37**: Cross-cutting idioms (Bigops, HB Factories,
     Choice/Decidability, Search Discipline).
+  - **§48**: Coming from the MathComp book / mathcomp 1.x (old → new
+    idiom tables).
 - **`domains.md`** — thin **dispatcher** that routes a question to
   one of the per-library files under `domains/`. Read first when the
   question is about a specific mathcomp library area.
 - **`domains/<N>_<topic>.md`** — one file per library area
-  (~330-460 lines each). Read **only** the file matching the
+  (~340-570 lines each). Read **only** the file matching the
   question — not the whole `domains/` directory:
   - `38_matrix.md` (matrix, `mxE`, `\det`, blocks)
   - `39_polynomial.md` (`{poly R}`, `coefE`, `hornerE`, `derivE`)
@@ -49,11 +51,16 @@ resolve but `file.v:line` numbers may drift — run
   - `45_algebra_tactics.md` (`ring`/`field`/`lra`/`nra`/`zify`)
   - `46_tuple_perm_binomial.md` (`n.-tuple`, `'S_n`, `'C(n,m)`)
   - `47_finfun.md` (`{ffun T -> R}`)
+  - `49_nat_seq.md` (nat: `.+1`, `subn`, `leqP`/`ltnP`; seq: `nth`,
+    `[seq …]`, `\in`)
+
+  Cross-references `(§N)`: N ≤ 37 or N = 48 → `reference.md`;
+  38-47 and 49 → `domains/<N>_*.md`.
 - **`templates.md`** — catalog of canonical proof skeletons keyed by
   the **shape of the goal** (`\forall x \near F, P x`, `measurable_fun
   D f`, `is_derive ...`, `apply/ffunP`, `HB.instance Definition _ :=
   ...`, ring-identity, etc.). Read this when you know the goal shape
-  but not how to start. 20 templates, each with strategy + skeleton
+  but not how to start. 23 templates, each with strategy + skeleton
   + real-code example.
 - **`phrasebook.md`** — natural-language **intent → idiom** index. Read
   when you know *what you want to do in English* (e.g. "introduce and
@@ -70,8 +77,10 @@ resolve but `file.v:line` numbers may drift — run
 - **`errors.md`** — Rocq/`coqc` **error message → cause → mathcomp
   fix** lookup (infer-placeholder/canonical/HB, unification, rewrite
   `not a subterm`, illegal application, scope/notation, HB
-  anomaly/universe). Read when the build prints something and you need
-  the concrete ssreflect action. Seeded from §35.10.
+  anomaly/universe, ssreflect bookkeeping, definition-time
+  (`Fixpoint`/`match`), warnings & Qed-time). Read when the build
+  prints something and you need the concrete ssreflect action. Seeded
+  from §35.10.
 
 **When to consult which file**:
 | Question type | File |
@@ -92,6 +101,12 @@ resolve but `file.v:line` numbers may drift — run
 | "How do I prove tuple equality / permutation parity?" | `templates.md` §6/§14 + `domains/46_tuple_perm_binomial.md` |
 | "How do I open `[ffun x => ...]`?" | `domains/47_finfun.md` |
 | "How do I prove `\forall x \near F, P x`?" | `templates.md` §1 |
+| "nat arithmetic / `.+1` / `subn` / `nth` / `\in` on a seq?" | `domains/49_nat_seq.md` |
+| "How do I do (strong) induction?" | `templates.md` §21 |
+| "How do I prove a `reflect` lemma / `Equality.axiom`?" | `templates.md` §22 |
+| "How do I give my new type `==`, `enum`, `#\|_\|`, or make a sub-type?" | `reference.md` §36.12-§36.13 |
+| "The book's code doesn't compile / mathcomp 1.x idiom?" | `reference.md` §48 |
+| "Which import line?" | `reference.md` §3 |
 - **`playbook.md`** — concrete cleanup patterns that have been validated
   to work (and the audit recommendations that turn out unsound). Use
   when fixing a codebase against the guide.
@@ -103,7 +118,9 @@ resolve but `file.v:line` numbers may drift — run
   high-yield style violations (line length, fully-qualified module
   names, scope delimiters, useless `have ->`, `[the X of T]`, `@` on
   user lemmas, name-then-consume patterns, 2-subgoal bullets, `_is_`
-  on equational lemmas, tactic spacing). Run with:
+  on equational lemmas, tactic spacing), plus advisory tags for
+  deprecated `all_ssreflect` / ring-structure names, `auto`-style
+  closers, `{H}H` clears and nat `case: leP`. Run with:
   `${CLAUDE_SKILL_DIR}/scripts/audit-quick.sh theories/*.v`
 
 ## How to use this skill
@@ -124,9 +141,9 @@ resolve but `file.v:line` numbers may drift — run
 | # | Rule | reference.md § |
 |---|------|----------------|
 |  1 | Lines must be <= 80 chars | 1 |
-|  2 | `From HB Require Import structures.` is the very first line | 3 |
+|  2 | `From HB Require Import structures.` first, then `From mathcomp Require Import all_boot …` (not deprecated `all_ssreflect`) | 3 |
 |  3 | Always `Local Open Scope`, never plain `Open Scope` | 6 |
-|  4 | Goal-closing tactic lines must start with `by` (or be `exact:`) | 26 |
+|  4 | Goal-closing tactic lines must start with `by` (or be `exact:`) — bullets do not check closure under mathcomp | 26, 26.5 |
 |  5 | Use bullets `-` `+` `*` and 2-space indent for branches | 8, 27.8 |
 |  6 | No `Focus`, no `{` `}` -- use indentation and bullets | 8 |
 |  7 | Lemma names: `mainSymbol_suffixes`, head symbol first | 10 |
@@ -154,6 +171,8 @@ resolve but `file.v:line` numbers may drift — run
 **Structural**
 - [ ] All lines <= 80 chars (`awk 'length > 80' file.v`)
 - [ ] Imports follow the canonical order (HB → mathcomp base → analysis → project)
+- [ ] Imports use `all_boot`/`all_order` (or upstream's `all_ssreflect_compat` in analysis ≥ 1.16); no new `all_ssreflect` (§3)
+- [ ] No structure name deprecated since mathcomp 2.4 (`ringType`, `comRingType`, …) (§36.2)
 - [ ] `(**md ... *)` header documents every public definition
 - [ ] `Set Implicit Arguments. Unset Strict Implicit. Unset Printing Implicit Defensive.`
 - [ ] All `Open Scope` are `Local Open Scope`
@@ -170,7 +189,13 @@ resolve but `file.v:line` numbers may drift — run
 - [ ] No `Focus` or `{}` braces
 - [ ] No bullets when only 2 subgoals (use 2-space indent + `last first`)
 - [ ] Tactic spacing: `move=>`, `apply:`, `apply/` (no space); `rewrite /def` (space)
-- [ ] No numerical occurrence selectors
+- [ ] No numerical occurrence selectors (translations: reference.md §8)
+- [ ] No `auto`/`eauto`/`intuition`/`firstorder` closers; `tauto` only on classical `Prop`/set goals (§22.5)
+- [ ] nat case splits use `leqP`/`ltnP`/`ltngtP`, not ssrnat `leP`/`ltP` (§28.1)
+- [ ] `?rule` only on side-condition rewrites followed by `//` (§29.3)
+- [ ] `have {}H`, never `have {H}H` (§27.11)
+- [ ] Every branch ends with `by`/`exact:`; bullets are inert (§26.5)
+- [ ] Lemmas end with `Qed`; `Defined` only with a comment (§8)
 
 **Concision (high-yield reviewer flags)**
 - [ ] No useless args to `exact:` / `apply:` (try without)
@@ -189,6 +214,8 @@ resolve but `file.v:line` numbers may drift — run
       §"Moving section-local `Arguments` declarations post-`End`")
 - [ ] Auxiliary lemmas use `Local`/`Let`/`Fact`; main results bare
 - [ ] Operators have spaces: `n * m`, not `n*m` (§9)
+- [ ] Instances for new types via `X.copy T (pcan_type fK)` / `[isSub for v]` + `[X of S by <:]` (§36.12-§36.13)
+- [ ] No mathcomp-1 idioms (`EqMixin`, `[eqType of T]`, `Canonical … Pack`) (§48)
 
 ## rocq-mcp integration (live proof inspection)
 
@@ -236,7 +263,7 @@ column lists the **required** params:
 | `rocq_compile` | coqc a finished source *string* | `source` |
 | `rocq_compile_file` | coqc a `.v` file on disk; surface errors | `file` |
 | `rocq_check` | Commit commands; advances `state_id` | `body`, `from_state` |
-| `rocq_query` | `Search`/`About`/`Print`/`Check`/`Locate` | `command` |
+| `rocq_query` | `Search`/`About`/`Print`/`Check`/`Locate`/`Compute` (§37.12) | `command` |
 | `rocq_step_multi` | Try tactics on ONE state; no advance | `tactics`, `from_state` |
 | `rocq_assumptions` | `Print Assumptions` for a name | `name`, `file` |
 | `rocq_notations` | How notations in a statement resolve | `statement` |
@@ -258,12 +285,18 @@ carries `pet_restarted: True`.
 ### Warm-import iteration (preamble mode)
 
 For scratch iteration, do **not** repeatedly `coqc /tmp/foo.v` — every
-coqc call reloads all imports (seconds on `all_ssreflect` / analysis).
+coqc call reloads all imports (seconds on `all_boot` / analysis).
 Instead warm the imports once:
 
 ```
-rocq_start preamble="From mathcomp Require Import all_ssreflect ssralg."
+rocq_start preamble="From mathcomp Require Import all_boot all_order ssralg."
 ```
+
+When the probe must behave like a real file, the preamble must be a
+verbatim copy of that file's header — imports + `Set Implicit
+Arguments. Unset Strict Implicit. Unset Printing Implicit Defensive.`
++ its `Import …` line + its `Local Open Scope`s — or `Search`/`Check`
+results and implicit status differ from the file (reference.md §5).
 
 The import set is content-hashed, so the returned `state_id` stays
 warm across iterations even when you change the lemma body. Then drive
@@ -319,7 +352,7 @@ subset keyed to the goal shape; lia/lra/ring/field need the matching
 `Require Import` warmed into the session first:
 
 ```
-# general close-out
+# general close-out (no auto/intuition in the battery: reference §22.5)
 tactics=["by [].", "done.", "exact: H.", "reflexivity.",
          "assumption.", "trivial."]
 # arithmetic over int/nat/rat (zify first to normalise, then)
@@ -339,7 +372,7 @@ Look up a lemma (`Search`/`About`/`Print`/`Check` go through
 `command`); add `from_state` to query the live proof context:
 ```
 rocq_query command="Search le_trans"
-rocq_query command="Search _ (_ + _)." from_state=42
+rocq_query command="Search (_ + _)." from_state=42
 ```
 
 Compile a file and see errors (on an in-proof error with coq-lsp
@@ -363,8 +396,8 @@ of the candidate, including imports. `problem_name` is the lemma
 identifier:
 ```
 rocq_verify problem_name="foo" \
-            problem_statement="From mathcomp Require Import all_ssreflect.\nLemma foo : 1 + 1 = 2.\nProof. Admitted." \
-            proof="From mathcomp Require Import all_ssreflect.\nLemma foo : 1 + 1 = 2.\nProof. by []. Qed."
+            problem_statement="From mathcomp Require Import all_boot.\nLemma foo : 1 + 1 = 2.\nProof. Admitted." \
+            proof="From mathcomp Require Import all_boot.\nLemma foo : 1 + 1 = 2.\nProof. by []. Qed."
 ```
 
 ### Fallback
@@ -435,6 +468,8 @@ read-only, never blocking.
 
 ## What this skill is NOT
 
-- Not a tutorial on math-comp itself (see the
-  [mathcomp book](https://math-comp.github.io/mcb/))
+- Not a tutorial on math-comp itself: see the MathComp book
+  (Mahboubi & Tassi, doi:10.5281/zenodo.3999478,
+  <https://math-comp.github.io/mcb/>). It targets mathcomp 1.x / Coq 8
+  (pre-HB): read `reference.md` §48 before reusing its code.
 - Not a substitute for the official `CONTRIBUTING.md` files

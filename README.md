@@ -16,11 +16,12 @@ refined and verified against specific Rocq / mathcomp versions (see
 
 ## What it covers
 
-- **Core conventions** (`reference.md`, §1-§37): line length, naming
-  (`mainSymbol_suffixes`), proof style, HB instances, deprecation,
-  visibility, idiomatic SSReflect, the PR Citation Index, and the
-  cross-cutting idioms (Bigops, HB Factories, Choice/Decidability,
-  Search Discipline).
+- **Core conventions** (`reference.md`, §1-§37 and §48): line length,
+  naming (`mainSymbol_suffixes`), proof style, HB instances,
+  deprecation, visibility, idiomatic SSReflect, the PR Citation Index,
+  the cross-cutting idioms (Bigops, HB Factories, Choice/Decidability,
+  Search Discipline), and a migration map for code written against the
+  MathComp book / mathcomp 1.x (§48).
 - **Domain-specific idioms** (`domains/`): one file per mathcomp
   library area, loaded only when relevant.
   - `38_matrix.md` — `'M[R]_(m,n)`, `mxE`, `\det`, blocks
@@ -33,6 +34,15 @@ refined and verified against specific Rocq / mathcomp versions (see
   - `45_algebra_tactics.md` — `ring`/`field`/`lra`/`nra`/`zify`
   - `46_tuple_perm_binomial.md` — `n.-tuple`, `'S_n`, `'C(n,m)`
   - `47_finfun.md` — `{ffun T -> R}`
+  - `49_nat_seq.md` — nat and seq (`ssrnat`, `seq`)
+- **Templates** (`templates.md`): canonical proof skeletons keyed by
+  the shape of the goal.
+- **Phrasebook** (`phrasebook.md`): intent-first index from "what I
+  want to do" to the idiomatic ssreflect/mathcomp chord.
+- **Errors** (`errors.md`): Rocq/coqc error message → likely cause →
+  mathcomp fix.
+- **Proof development** (`proof-development.md`): workflow for filling
+  an `Admitted.` or unsticking a subgoal (inspect, search, try, verify).
 - **Playbook** (`playbook.md`): concrete cleanup patterns that have
   been validated to work, plus the audit recommendations that turn
   out to be unsound.
@@ -43,7 +53,7 @@ refined and verified against specific Rocq / mathcomp versions (see
   shell + `grep`/`awk`/`sed` checker for high-yield style violations
   (line length, tactic spacing, useless rewrites, scope noise,
   deprecated lemmas, missing `{ffun}` builders, `lia` without
-  `zify`, etc.).
+  `zify`, deprecated `all_ssreflect` / ring-structure names, etc.).
 
 ## Installation
 
@@ -103,11 +113,11 @@ version of `SKILL.md`).
 ## Layout
 
 ```
-mathcomp-skills/
+skills/mathcomp-skills/
 ├── SKILL.md                  ← always loaded; dispatcher + decision table
-├── reference.md              ← §1-§37, core conventions (~3270 lines)
+├── reference.md              ← §1-§37 + §48, core conventions (~6100 lines)
 ├── domains.md                ← thin index for the per-library files
-├── domains/                  ← §38-§47, one file per mathcomp library area
+├── domains/                  ← §38-§47, §49, one file per mathcomp library area
 │   ├── 38_matrix.md
 │   ├── 39_polynomial.md
 │   ├── 40_finset.md
@@ -117,12 +127,22 @@ mathcomp-skills/
 │   ├── 44_topology.md
 │   ├── 45_algebra_tactics.md
 │   ├── 46_tuple_perm_binomial.md
-│   └── 47_finfun.md
+│   ├── 47_finfun.md
+│   └── 49_nat_seq.md
 ├── templates.md              ← canonical proof templates by goal shape
+├── phrasebook.md             ← intent → idiom index
+├── errors.md                 ← error message → cause → fix
+├── proof-development.md      ← filling an Admitted. / a stuck subgoal
 ├── playbook.md               ← validated cleanup patterns + anti-patterns
 ├── LAST_VERIFIED.md          ← citation-rot mitigation
 └── scripts/
     ├── audit-quick.sh        ← mechanical style scanner
+    ├── check-citations.sh    ← re-validates file:line citations
+    ├── lint-markdown.sh      ← lints the skill's own markdown
+    ├── parse-coqc-errors.py  ← coqc output → structured JSON
+    ├── search-mathcomp.sh    ← Search / About / Print from the CLI
+    ├── print-assumptions-check.sh ← flags unexpected axioms
+    ├── fixtures/             ← golden test for audit-quick.sh
     └── README.md
 ```
 
@@ -139,6 +159,24 @@ grep -n "Lemma ffunP" $(rocq c -where)/user-contrib/mathcomp/boot/finfun.v
 
 If the line drifts, the lemma name should still resolve; update
 `LAST_VERIFIED.md` accordingly.
+
+## Sources
+
+- Assia Mahboubi and Enrico Tassi, *Mathematical Components*, Zenodo,
+  2022 (draft v1.0.2, 2022-09-28),
+  [doi:10.5281/zenodo.3999478](https://doi.org/10.5281/zenodo.3999478)
+  (version record 10.5281/zenodo.7118596); HTML/PDF at
+  <https://math-comp.github.io/mcb/>. Targets Coq 8 / mathcomp 1.x
+  (pre-HB): read §48 before reusing its code. Cited as "(MCB §x.y)".
+  Book-derived rules carry that tag and were re-verified on the
+  versions listed at the top of this file.
+- [math-comp/math-comp CONTRIBUTING.md](https://github.com/math-comp/math-comp/blob/master/CONTRIBUTING.md)
+  and [math-comp/analysis CONTRIBUTING.md](https://github.com/math-comp/analysis/blob/master/CONTRIBUTING.md).
+- [rocq-mcp](https://github.com/LLM4Rocq/rocq-mcp) for live proof
+  inspection.
+
+The full source list (PR reviews, issues, Zulip, HB) is at the end of
+`reference.md`.
 
 ## License
 

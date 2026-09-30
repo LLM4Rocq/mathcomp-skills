@@ -195,8 +195,13 @@ module / etc.); all of them collapse to `ffunE` at the entry level:
 |---------|-------|----------|
 | `FinFunBaseAddMagma` ... `FinFunNmod` (nmodule.v) | 1214-1302 | `+`, `0`, `*+` |
 | `FinFunZmod` (nmodule.v) | 1304-1318 | `-`, `addNr` |
-| `FinFunSemiRing` (ssralg.v) | 7282-7327 | `*`, `1` (when `R : semiRingType`) |
-| `FinFunRing` (ssralg.v) | 7337-7347 | `*`, `1` (when `R : ringType`) |
+| `FinFunSemiRing` (ssralg.v) | 7282-7327 | `*`, `1` (when `R : pzSemiRingType`); `ffun1_nonzero` needs `R : nzSemiRingType`, `a : aT` |
+| pz-ring instance (ssralg.v) | 7329-7332 | ring laws, `-` with `*` (when `R : pzRingType`) |
+| `FinFunRing` (ssralg.v) | 7337-7347 | `ffun_ring R a : nzRingType` (needs `R : nzRingType`, `a : aT`) |
+
+Use `pzSemiRingType` / `pzRingType` / `comPzRingType` for the carrier;
+the legacy `semiRingType` / `ringType` / `comRingType` are deprecated
+since mathcomp 2.4.0 (§36.2).
 
 Two especially useful lemmas in this layer:
 
@@ -227,9 +232,9 @@ Notation support := 0.-support.    (* ssralg.v *)
 Two predicate families on top of `support`:
 
 ```coq
-y.-support f \subset D                (* f has y-support D *)
-f \in pffun_on y D R                  (* support \subset D, range \subset R *)
-f \in pfamily y D F                   (* support \subset D, f x \in F x for x \in D *)
+y.-support f \subset D  (* f has y-support D *)
+f \in pffun_on y D R    (* support \subset D, range \subset R *)
+f \in pfamily y D F     (* support \subset D, f x \in F x for x \in D *)
 ```
 
 Back in `mathcomp/boot/finfun.v`, the `P` views (l. 373, 382, 394)
@@ -261,7 +266,7 @@ apply/ffunP => x; rewrite !ffunE.
 (* WRONG -- treating the post-ffunP goal as boolean *)
 apply/ffunP => x; apply/eqP.            (* goal is Leibniz =, not == *)
 (* RIGHT -- after apply/ffunP the goal is f1 x = f2 x, stay in = *)
-apply/ffunP => x; rewrite !ffunE; ring. (* assumes a comRingType carrier *)
+apply/ffunP => x; rewrite !ffunE; ring. (* assumes a comPzRingType carrier *)
 
 (* WRONG -- unfolding the underlying seq *)
 rewrite /finfun /fun_of_fin unlock /=.
@@ -279,7 +284,7 @@ rewrite (eq_ffun (fun x => addrC _ _)).   (* eq_ffun is not setoid-rewritable *)
 apply/ffunP => x; rewrite !ffunE addrC.
 
 (* WRONG -- writing T ^ n then treating it as a tuple *)
-Definition g (t : T ^ n) := tnth t i.                      (* tnth wants n.-tuple *)
+Definition g (t : T ^ n) := tnth t i.  (* tnth wants n.-tuple *)
 (* RIGHT -- T ^ n is an ffun, apply directly *)
 Definition g (t : T ^ n) := t i.
 (* or, if you really want the tuple *)

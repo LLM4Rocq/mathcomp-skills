@@ -304,6 +304,31 @@ data. Conversions:
 `set_enum` (l. 348) and `enum_set0` / `enum_set1` / `enum_setT`
 (l. 351, 384, 370) provide the round-trip equations.
 
+**Decidable finite quantifiers.** A comprehension body, an `if`
+guard or a `pred` needs a `bool`. Over a `finType`, write
+`[forall x, P x]` / `[exists x, P x]`, which are booleans computed
+from the enumeration. Do not use a Prop `forall`/`exists` wrapped in
+`asbool`. The views are `forallP` (boot/fintype.v:929), `existsP`
+(boot/fintype.v:946), `forallPn` (boot/fintype.v:1012) and
+`existsPn` (boot/fintype.v:1008). `forallPP` / `existsPP`
+(boot/fintype.v:914, boot/fintype.v:911) take a reflection view for
+the body. Pair each new boolean predicate with a `fooP : reflect …`
+lemma (§37.6, templates.md §22). The intro/apply rows are in
+phrasebook.md §2 (MCB §7.3).
+
+```coq
+From mathcomp Require Import all_boot.
+
+Definition full_rows (T : finType) (R : rel T) : {set T} :=
+  [set x | [forall y, R x y]].
+
+Lemma allP_ex (P : pred 'I_3) : [forall i, P i] -> P ord0.
+Proof. by move=> /forallP; apply. Qed.
+
+Lemma notall_ex (P : pred 'I_3) : ~~ [forall i, P i] -> exists i, ~~ P i.
+Proof. by move=> /forallPn[i nPi]; exists i. Qed.
+```
+
 ### 40.10 Common pitfalls
 
 1. **`rewrite -inE`** -- forbidden. The multirule is a tuple; the

@@ -47,6 +47,7 @@ is why the parent can safely fan out one instance per file in parallel
 3. **Enumerate every style violation** and key each to a
    `reference.md` section number. Categories to cover:
    - §1, §6, §22.3 — line length, scope delimiters
+   - §3 — imports: `all_boot all_order`, not deprecated `all_ssreflect`
    - §3, §23 — fully-qualified module names
    - §8, §26 — proof terminator hygiene
    - §9 — tactic spacing
@@ -55,10 +56,16 @@ is why the parent can safely fan out one instance per file in parallel
    - §22.1–22.4 — concision / triviality
    - §24 — type constraint hygiene
    - §25 — `@` discipline
+   - §26.5, §27.9 — bullets are inert (not checked); goal selectors
    - §27 — bookkeeping idioms
+   - §27.11 — clear / refine a hypothesis in place with `{}H`
    - §28 — case analysis
+   - §28.1 — nat case splits: `leqP`/`ltnP`/`ltngtP`, not `leP`/`ltP`
    - §29 — rewriting idioms
    - §32 — Definition vs. Notation, `is_` prefix on operators
+   - §36.2 — deprecated structure names (`ringType` → `nzRingType`/Pz)
+   - §48 — mathcomp 1 / MCB idioms (`EqMixin`, `[eqType of T]`,
+     `Canonical … Pack`) → HB / mathcomp 2.5 forms
 
 ## Output
 
@@ -86,7 +93,9 @@ Be specific; no vague feedback. Cap the response at ~6000 words.
   chains, section-local `Arguments` moved post-`End`, inference-anchor
   wrappers). The build is the oracle.
 - Treat `audit-quick.sh` §25 (`@`) output as candidate-only
-  (~70-80% false positives on HB-heavy code).
+  (~70-80% false positives on HB-heavy code), and its advisory
+  tags §3, §22.5, §27.11, §28.1, §36.2 as pointers: check the
+  carrier / compat need before reporting them.
 - One auditor per file. The parent may run several auditors in
   parallel because each is read-only — but do not yourself dispatch or
   recurse into more auditors.

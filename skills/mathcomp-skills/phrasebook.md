@@ -11,9 +11,11 @@
    "decide…", "rewrite…", "close…").
 2. Read the row: **intent → idiom → cross-ref**.
 3. Follow the `(§N)` to the full rule / worked example. Per the guide
-   convention: `(§N)` with `N ≤ 37` lives in `reference.md`; `N ≥ 38`
-   lives in `domains/<N>_<topic>.md`. `templates.md §k` refs are
-   spelled out in full.
+   convention: `(§N)` with `N ≤ 37` or `N = 48` lives in `reference.md`;
+   `38 ≤ N ≤ 47` and `N = 49` live in `domains/<N>_<topic>.md`.
+   `templates.md §k` refs are spelled out in full (`tmpl §k` in tables);
+   `§k (here)` and the "this file" column of the closing map point into
+   this file.
 
 Every idiom below is current mathcomp 2.5 / analysis 1.16 ssreflect.
 Subtle preconditions are noted inline.
@@ -37,6 +39,16 @@ does book-keeping *as it introduces*. Never `move=> H` then act on
 | intro, keep for `//` (no name) | `move=> ?` | §27.6 |
 | name only if reused several× | `move=> Hname` | §14, §27.6 |
 | `case:` then intro both pieces | `case=> a b` | §28.1, §28.3 |
+| hyp `n.+1 = m.+1`, use `n = m` | `move=> [->]` / `case=> ->` / `move/succn_inj` | §27.5, §29.7 |
+| hyp `x :: s = y :: t` | `case=> -> ->` | §27.5, §29.7 |
+| hyp `Some a = Some b` | `case=> ->` | §27.5, §29.7 |
+| same, stated in `bool` | `eqSS`, `eqseq_cons` | §49.4 |
+| specialise a ∀-hyp as you intro | `move=> /(_ x) h` | §27.5, §27.12 |
+| feed a premise as you intro | `move=> /(_ _ hx) h` | §27.12 |
+| specialise a hyp in place | `move/(_ x) in H` | §27.12 |
+| rewrite in a hyp / hyp and goal | `rewrite E in H` / `rewrite E in H *` | §27.10 |
+| rewrite by `h`, then clear it | `rewrite {}h` | §27.11 |
+| clear a dead hyp | `move=> {h}` | §27.11 |
 
 `move=> [a b]` and `case=> a b` coincide on a single top hypothesis;
 prefer `move=> [a b]` when already introducing, `case=> a b` when
@@ -57,11 +69,91 @@ two-step (§27.3, §27.7).
 | intro `a == b` as eqn, keep it | `move=> /eqP eqab` | §36.9 |
 | split intro'd `_ && _` | `move=> /andP[h1 h2]` | §28.1 |
 | split intro'd `_ \|\| _` | `move=> /orP[h1\|h2]` | §28.1 |
+| split intro'd `[&& a, b & c]` | `move=> /and3P[ha hb hc]` (`and4P`, `and5P`) | §36.7 |
+| prove `[&& a, b & c]` | `apply/and3P; split` | §36.7 |
+| split intro'd `[\|\| a, b \| c]` | `case/or3P=> [ha\|hb\|hc]` (`or4P`) | §36.7 |
+| use intro'd `[forall x, P x]` at `x` | `move=> /forallP/(_ x) Px` | §40.9, §27.12 |
+| prove `[forall x, P x]` | `apply/forallP => x` | §40.9 |
+| destruct intro'd `[exists x, P x]` | `move=> /existsP[x Px]` | §40.9 |
+| prove `[exists x, P x]` | `apply/existsP; exists x` | §40.9 |
+| negated `[forall]` / `[exists]` | `move=> /forallPn[x nPx]` / `/existsPn h` | §40.9 |
 | feed intro'd hyp through a view | `move=> /myview h` | §27.3 |
 | view then rewrite by result | `move=> /eq_foo->` | §27.7 |
+| split `&&` and view one side | `move=> /andP[/eqP-> h]` | §27.5 |
 
-The `/` chains left-to-right: `move=> /eqP/andP[h1 h2]` applies
-`eqP` then `andP` to the same incoming hypothesis.
+`/V1/V2` applies `V1`, then `V2` **to `V1`'s result**
+(`move=> /eqP/esym` turns `x == y` into `y = x`); it only makes sense
+when `V1`'s output has `V2`'s input shape. To apply different views to
+the pieces of a conjunction, **nest** them inside the brackets:
+`move=> /andP[/eqP-> h]` splits `(x == y) && b`, rewrites by `x = y`
+and names `h : b` (MCB §5.1.3). `move=> /eqP/andP[h1 h2]` fails:
+`andP` cannot consume what `eqP` returns.
+
+`a && b && c` parses as `(a && b) && c`, so `/and3P` does not match
+it: state `[&& a, b & c]` (MCB §1.2.1, §1.3.1, §1.7), or nest
+`/andP[/andP[ha hb] hc]`.
+
+```coq
+From mathcomp Require Import all_boot.
+
+Lemma and3_mid (a b c : bool) : [&& a, b & c] -> b.
+Proof. by case/and3P. Qed.
+
+Lemma and3_intro (a b c : bool) : a -> b -> c -> [&& a, b & c].
+Proof. by move=> ha hb hc; apply/and3P. Qed.
+
+Lemma or3_ex (a b c : bool) : [|| a, b | c] -> a || b || c.
+Proof. by case/or3P=> ->; rewrite ?orbT. Qed.
+
+(* a && b && c is (a && b) && c: /and3P does not match, nest /andP *)
+Lemma and_nested (a b c : bool) : a && b && c -> b.
+Proof. by move=> /andP[/andP[_ hb] _]. Qed.
+```
+
+---
+
+## 2b. Apply a view to the goal or to a term
+
+(MCB §5.1.3-§5.1.4.) Outside an intro-pattern a view goes after
+`apply/` (on the goal), after `case/` or `move/` (on a term pushed with
+`:`), or inside `rewrite (VP h)`.
+
+| intent | idiom | ref |
+|---|---|---|
+| goal `a && b` → two goals | `apply/andP; split` | §37.6 |
+| goal `a \|\| b`, prove the left side | `apply/orP; left` | §37.6 |
+| goal `a ==> b` → `a -> b` | `apply/implyP => ha` | §37.6 |
+| goal `~~ b` → `~ b` | `apply/negP => hb` | §37.6 |
+| case-split a lemma's boolean result | `case/orP: (leq_total m n) => [le\|ge]` | §28.3 |
+| view a named hyp, re-intro the pieces | `move/andP: h => [h1 h2]` | §27.3 |
+| rewrite with a view applied to a hyp | `rewrite (maxn_idPl le_nm)` | §36.9 |
+| reshape a bool goal before a view | `rewrite -implyNb -ltnNge; apply/implyP` | §36.3 |
+
+- **Stay boolean while rewriting; switch to `Prop` through a view only
+  to destructure or to introduce** (§36.3).
+- A `reflect` lemma works in both directions and on `~~`/`= false`
+  forms: Corelib `ssr/ssrbool.v` declares hint views (`introT`,
+  `elimT`, `elimTF`, …). `rewrite (VP h)` works because `elimT` is a
+  coercion from `reflect P b` to `b -> P`.
+
+```coq
+From mathcomp Require Import all_boot.
+
+Lemma maxn_cases n1 n2 : maxn n1 n2 = n1 \/ maxn n1 n2 = n2.
+Proof.
+by case/orP: (leq_total n2 n1) => [/maxn_idPl -> | /maxn_idPr ->];
+  [left | right].
+Qed.
+
+Lemma or_goal m n (b : bool) : (m <= m + n) || b.
+Proof. by apply/orP; left; exact: leq_addr. Qed.
+
+Lemma or_via_imp m n : (n <= m) || (0 < n).
+Proof.
+rewrite -implyNb -ltnNge; apply/implyP => lt_mn.
+exact: leq_ltn_trans (leq0n m) lt_mn.
+Qed.
+```
 
 ---
 
@@ -85,23 +177,33 @@ negated form is what later rewrites need.
 
 ## 4. Decide an order comparison
 
-Reflection-style splits that leave equations, not opaque `is_true`
-hypotheses (§28.1).
+Spec-lemma splits: one `case:` substitutes every occurrence of the
+comparison in the **goal** by `true` / `false` in each branch (§28.1).
 
 | intent | idiom | ref |
 |---|---|---|
-| `m <= n` vs `n < m` on `nat` | `case: leP` | §28.1 |
-| `m < n` vs `n <= m` on `nat` | `case: ltP` | §28.1 |
-| three-way `<` / `=` / `>` | `case: ltgtP` | §28.1 |
-| three-way with `->` on eq arm | `have [..\|\|->] := ltgtP x y` | §28.1 |
-| `<=` / `>` in ordered field/num | `case: lerP` | §28.1 |
-| `<` / `>=` in ordered field/num | `case: ltrP` | §28.1 |
-| `leP`-analogue on a real domain | `case: real_leP` | §28.1 |
+| `m <= n` vs `n < m` on `nat` | `case: leqP` / `case: (leqP m n)` | §28.1 |
+| `m < n` vs `n <= m` on `nat` | `case: ltnP` | §28.1 |
+| three-way on `nat`, `->` on eq arm | `have [lt\|gt\|->] := ltngtP m n` | §28.1 |
+| `n == 0` vs `0 < n` on `nat` | `case: posnP` | §28.1 |
+| `x <= y` vs `y < x`, `orderType` | `case: leP` / `case: ltP` | §28.1 |
+| three-way, `orderType` | `case: ltgtP` | §28.1 |
+| same, `->` on eq arm, `orderType` | `have [..\|\|->] := ltgtP x y` | §28.1 |
+| `<=` / `>` on a `realDomainType` | `case: lerP` | §28.1 |
+| `<` / `>=` on a `realDomainType` | `case: ltrP` | §28.1 |
+| same on `numDomainType`, `\is real` | `case: real_leP` | §28.1 |
 
-`leP` / `ltP` are the `nat` forms; `lerP` / `ltrP` / `ltgtP` are the
-`Order` / `ssrnum` forms over `porderType` / `numDomainType`. Use the
-`have [..] := ltgtP x y` placement when the equality branch should
-land as a rewrite `->` into the main flow (§28.1 example).
+On `nat` use `leqP` / `ltngtP` (MCB §5.2.1), `ltnP` and `posnP`;
+`leqP` / `ltnP` indices also rewrite `minn` / `maxn` (ssrnat.v). ssrnat's `leP` / `ltP` are
+Stdlib bridges (`reflect (m <= n)%coq_nat (m <= n)`): `case: leP` leaves
+`%coq_nat` hypotheses. Under `Import Order.TTheory` the name `leP` means
+Order's lemma, and `case: leP` on a `nat` goal fails with
+*Pattern (leP _ _) was not completely instantiated*; write `ssrnat.leP`
+for the bridge (§28.1). The `orderType` rows need `Import Order.TTheory`
+and a total order; `lerP` / `ltrP` need `Import Num.Theory`. Use the
+`have [..] := ltgtP x y` placement when the equality branch should land
+as a rewrite `->` into the main flow; the goal must still mention `x`
+after the split, else name the equation instead of `->`.
 
 ---
 
@@ -124,7 +226,7 @@ when you want the off-branch in `bool` form. Don't
 
 ---
 
-## 6. Prove a conjunction / split goal
+## 6. Prove a conjunction, existential or disjunction / split goal
 
 | intent | idiom | ref |
 |---|---|---|
@@ -132,12 +234,36 @@ when you want the off-branch in `bool` form. Don't
 | `A /\ B`, first branch trivial | `split=> //; <rest>` | §28.3 |
 | split + intro into each branch | `split=> [a\|b]` | §28.3 |
 | set-equality two-inclusion split | `apply/seteqP; split=> x` | tmpl §9 |
-| iff via reflect each side | `apply/idP/idP` | §37.6 |
+| `b1 = b2` in `bool`, reflect each side | `apply/idP/idP` / `apply/V1/V2` | tmpl §22 |
+| prove `reflect P b` | `apply: (iffP idP) => [hb\|hP]` (or `iffP andP`, …) | tmpl §22 |
+| exhibit a witness | `by exists w` / `exists w => //` | MCB §3.6, §4.2.1 |
+| several witnesses | `by exists x, y` | — |
+| pick a disjunct (`Prop` `\/`) | `by left` / `by right; apply: …` | MCB §3.6, §5.1.1 |
+| pick a disjunct (`bool` `\|\|`) | `apply/orP; left` / `by rewrite h orbT` | §2b (here) |
+| goal `True` | `by []` | §22.1 |
+| two goals, close one inline | `t; first by t1` / `t; last by t2` | §27.9 |
+| one tactic per goal | `t; [t1 \| t2]` / `t; [t1 \| t ..]` | §27.9 |
 
 **No bullets when only two subgoals are generated** — use
 `by split; [t1 \| t2]` for a one-liner, or 2-space indent + an
 un-indented second goal for multi-line branches (§27.8). Reserve
 `-` / `+` / `*` bullets for three or more subgoals.
+
+Don't write `eexists`, `exact (ex_intro _ w h)` or `destruct` on
+`False`: use `exists w`, and `by []` / `by case: f` (a skill
+convention; `ex` / `False` elimination: MCB §3.6; `exists`: MCB §4.2.1).
+`first by` fails unless it closes its goal; a bare `first t` does not.
+
+```coq
+From mathcomp Require Import all_boot.
+
+Lemma ex_ex : exists n, 2 < n. Proof. by exists 3. Qed.
+Lemma ex2_ex : exists m n, m + n = 3. Proof. by exists 1, 2. Qed.
+Lemma or_ex n : n = 0 \/ 0 < n.
+Proof. by case: n => [|n]; [left | right]. Qed.
+Lemma absurd_ex n (h : n.+1 = 0) : n = 42. Proof. by []. Qed.
+Lemma false_ex (f : False) : 0 = 1. Proof. by case: f. Qed.
+```
 
 ---
 
@@ -151,11 +277,35 @@ un-indented second goal for multi-line branches (§27.8). Reserve
 | establish `T`, rewrite by it | `have -> : T by …` | §27.6, §27.1 |
 | factor an in-proof lemma | `gen have lem, _ : x / P x` | §30.2 |
 | specialise an existing hyp | `have h2 := h x y.` | §27.6 |
+| reduce goal to `S`, prove `S` last | `suff h : S.` / `suff h : S by …` | §30.7 |
+| prove a fact and destruct it | `have /andP[h1 /eqP->] : b1 && (x == y) by …` | §30.7 |
+| prove `x == y`, keep it as `=` | `have /eqP xy : x == y by …` | §30.7 |
+| symmetric sub-argument | `have th x y : y <= x -> … by …` | §30.7 |
+| abbreviate a subterm | `set t := (pat)` / `set t := (X in _ = X)` | §30.8 |
+| abbreviate it in a hyp too | `set t := pat in h` / `… in h *` | §30.8 |
+| local helper function | `pose f x := …` | §30.8 |
 
 `have ? : T by …` requires a **single-line** `by` sub-proof; if it
 needs a bulleted multi-line split, name it instead (§27.6 parser
 caveat). The anonymous `?` front-loads positivity / non-zeroness so
 later `rewrite lemma//` chains shrink to one line.
+
+A view pattern after `have` applies **after** the sub-proof: the `by`
+proves the stated boolean form (MCB Part III, cheat sheet). Prefer it
+to `have h : A && B by …; move/andP: h => [h1 h2]`.
+
+```coq
+From mathcomp Require Import all_boot.
+
+Lemma hv (a b c : nat) (P : pred nat) (h : P a && (b == c)) : b = c.
+Proof. by have /andP[_ /eqP->] : P a && (b == c) by []. Qed.
+
+Lemma sf m n (h : m <= n) : m < n.+2.
+Proof.
+suff h1 : m < n.+1 by exact: ltn_trans h1 _.
+by rewrite ltnS.
+Qed.
+```
 
 ---
 
@@ -214,8 +364,9 @@ When ε need not shrink, prefer `filterS2`/`filterS3` over `near=>`
 | WLOG a sign normalisation | `wlog: x / 0 < x => [h\|x0]` | §30.1 |
 
 The first branch (`hsym`) must discharge the symmetric case by
-re-applying the WLOG'd statement; a `case: leP` / `ltgtP` typically
-feeds it (§30.1 example).
+re-applying the WLOG'd statement; a `case: leqP` (`nat`) or
+`case: leP` / `ltgtP` (ordered types) typically feeds it (§30.1
+example).
 
 ---
 
@@ -248,6 +399,13 @@ Do **not** `destruct (pselect P)` — that is not ssreflect style; use
 | discharge trivial goal mid-chain | `… //` | §26.4 |
 | discharge trivial goal + simplify | `… //=` | §26.4 |
 | standalone `by []` synonym | `done` | §26 |
+| closed by computation (`0 < n.+1`) | `by []` (also `size [:: a; b] = 2`) | §22.1 |
+| lemma needs a computable fact | pass `(isT : 1 < p.+2)` as the argument | §22.1 |
+| use `h : b` inside `&&`/`\|\|`/`if` | `rewrite h /=` | §36.3 |
+| rewrite with `nb : ~~ b` | `rewrite (negbTE nb)` / `move=> /negPf ->` | §36.3 |
+| absurd `0 = n.+1`, `[::] = x :: s`, `true = false` | `by []` (`by case` warns `spurious-ssr-injection`) | §22.1, §29.7 |
+| hyp `f : False` | `by case: f` | MCB §3.6 |
+| expose a successor under `+`/`*` | `rewrite addSn` / `addnS` / `mulSn` (not `/=`) | §49.4 |
 
 Every goal-closing line must start with `by` or be an `exact:` —
 `apply:` alone should never close a goal (§26.2). `//` inside a chain
@@ -261,7 +419,7 @@ is `by []`; `//=` is `by []` plus `simpl` (§26.4).
 
 | intent | idiom | ref |
 |---|---|---|
-| polynomial identity, `comRingType` | `by ring` | §45.3 |
+| polynomial identity, `comPzRingType` | `by ring` | §45.3 |
 | identity with `^-1` over a field | `by field` | §45.3 |
 | ring identity modulo eqns `H` | `by ring: H` | §45.3 |
 | field identity discharging `H` | `field: H` | §45.3 |
@@ -286,7 +444,7 @@ failure.
 |---|---|---|---|
 | rewrite, chained | `rewrite l1 l2 //` | `rewrite l1; rewrite l2` | §29 |
 | case-split, **consuming** | `case: h` | `case h` / `destruct h` | §28.1 |
-| induct, **consuming** | `elim: n` | `induction n` | §28.1 |
+| induct, **consuming** | `elim: n => [\|n IHn]` | `induction n` | tmpl §21 |
 | view an **incoming hyp** | `move=> /view` | `apply/view` as intro | §27.3 |
 | switch the **goal** via view | `apply/view` | (not `move=>`) | §37.6 |
 | apply a lemma, **consuming** | `apply: lem` | `apply lem` | §26.2 |
@@ -300,8 +458,13 @@ Key distinctions, spelled out:
   when one `rewrite l1 l2` suffices (§29.3, §29.2).
 - **`case:` / `elim:` (consume) vs `case` / `elim`**: the trailing
   `:` **moves the named item into the goal** before splitting —
-  `case: h` / `elim: n IHn` is the idiom. Bare `case` / `elim`
-  operate on the goal's top and are rarely what you want (§28.1).
+  `case: h` / `elim: n => [|n IHn]` is the idiom. Names after `:` are
+  **pushed** (generalized); names after `=>` are **introduced** (MCB
+  §2.2.2, §2.3.4, §4.1).
+  `elim: n IHn` fails with *The variable IHn was not found in the
+  current environment*. Bare `case` / `elim` operate on the goal's top
+  and are rarely what you want (§28.1; induction shapes in
+  templates.md §21).
 - **`move=> /view` vs `apply/view`**: `/view` in an intro-pattern
   transforms a **hypothesis being introduced**; `apply/view`
   transforms the **goal** through the reflection lemma. Not
@@ -313,15 +476,133 @@ Key distinctions, spelled out:
 
 ---
 
-## 15. Quick cross-reference map
+## 15. Induct
+
+(MCB §2.3.4, §3.7, §5.3.) Skeletons, pitfalls and worked examples live
+in templates.md §21. The
+mechanics of pushing items before `elim` (`elim: n m`, `in m *`) are
+in §27.10.
+
+| intent | idiom | ref |
+|---|---|---|
+| structural induction on `nat` | `elim: n => [\|n IHn]` | tmpl §21 |
+| same, base case closed by `done` | `elim: n => // n IHn` | tmpl §21 |
+| structural induction on a `seq` | `elim: s => [\|x s IHs]` | tmpl §21 |
+| generalize `m` so the IH quantifies it | `elim: n m => [\|n IHn] m` | tmpl §21, §27.10 |
+| same, without re-listing `m` | `elim: n => [\|n IHn] in m *` | tmpl §21, §27.10 |
+| IH for every smaller value | `elim/ltn_ind: n => n IHn` | tmpl §21 |
+| least `n` with `P n` (minimal witness) | `case: (ex_minnP exP) => m Pm m_min` | §49.11 |
+| induct on a size / measure | `have [k] := ubnP (size s); elim: k => // k IHk in s *` | tmpl §21 |
+| `seq` from the right (`rcons`) | `elim/last_ind: s => [\|s x IHs]` | tmpl §21 |
+| polynomials (`all_algebra`) | `elim/poly_ind: p => [\|p c IHp]` | §39.8 |
+| two bigops in lockstep | `elim/big_rec2: _ => // i y1 y2 _ ->` | tmpl §21 |
+| consume the IH (used once) | `rewrite {}IHn` / `rewrite -{}IHn` | §27.11 |
+
+- Never `intros; induction n`, and never a numeric occurrence selector
+  to load a bound (`{-2}n`, §8): use `ltn_ind` / `ubnP`.
+- After `//=` the step goal still shows `n.+1 + m` (`addn` is
+  `simpl never`): rewrite with `addSn` / `addnS` / `mulSn` (§49.4).
+
+---
+
+## 16. Prove a negation / contrapose
+
+With a hypothesis to contrapose against, `apply:` the `contra*` lemma
+whose shape matches (MCB §2.3.3, §4.2.1) instead of `apply/negP => h`
+plus a manual contradiction. The lookup table below is library
+material, not from the book. Negation-goal skeletons and the worked
+`m < p` example: templates.md §23.
+
+| intent | idiom | ref |
+|---|---|---|
+| goal `m < p`, have `H : b` | `rewrite ltnNge; apply: contraTN H => le_pm` | tmpl §23 |
+| goal `b -> c`, prove `~~ c -> ~~ b` | `apply: contraTT => nc` | tmpl §23 |
+| goal `x1 != x2` from `H : f x1 != f x2` | `apply: contra_neq H => ->` | tmpl §23 |
+| goal `~ Q` from `H : ~ P` | `apply: contra_not H => hq` | tmpl §23 |
+
+Lookup table (letter-coded names first; in parentheses the older
+Corelib lemma each one is defined as):
+
+| statement | lemma |
+|---|---|
+| `(c -> b) -> ~~ b -> ~~ c` | `contraNN` (`contra`) |
+| `(c -> ~~ b) -> b -> ~~ c` | `contraTN` (`contraL`) |
+| `(~~ c -> b) -> ~~ b -> c` | `contraNT` (`contraR`) |
+| `(~~ c -> ~~ b) -> b -> c` | `contraTT` (`contraLR`) |
+| `(~~ b -> false) -> b` | `contraT` |
+| `(c -> ~~ b) -> b -> c = false` | `contraTF` |
+| `(c -> b) -> ~~ b -> c = false` | `contraNF` |
+| `(c -> b) -> b = false -> ~~ c` | `contraFN` |
+| `(c -> b) -> b = false -> c = false` | `contraFF` |
+| `(~~ c -> b) -> b = false -> c` | `contraFT` |
+| `(Q -> P) -> ~ P -> ~ Q` | `contra_not` |
+| `(Q -> ~ P) -> P -> ~ Q` | `contraPnot` |
+| `(P -> ~~ b) -> b -> ~ P` | `contraTnot` |
+| `(P -> b) -> ~~ b -> ~ P` | `contraNnot` |
+| `(~~ b -> ~ P) -> P -> b` | `contraPT` |
+| `(~~ b -> P) -> ~ P -> b` | `contra_notT` |
+| `(b -> P) -> ~ P -> ~~ b` | `contra_notN` |
+| `(b -> ~ P) -> P -> ~~ b` | `contraPN` |
+| `(x1 = x2 -> z1 = z2) -> z1 != z2 -> x1 != x2` | `contra_neq` |
+| `(x = y -> b) -> ~~ b -> x != y` | `contraNneq` |
+| `(x = y -> ~~ b) -> b -> x != y` | `contraTneq` |
+| `(x != y -> ~~ b) -> b -> x = y` | `contraTeq` |
+| `(x != y -> b) -> ~~ b -> x = y` | `contraNeq` |
+| `(x = y -> P) -> ~ P -> x != y` | `contra_not_neq` |
+
+- Letter key: first letter = the **given hypothesis**, second = the
+  **goal**; `T` = `b`, `N` = `~~ b`, `F` = `b = false`, `P` = `P`,
+  `not` = `~ P`, `eq` / `neq` = `x = y` / `x != y`. The older names
+  (`contra`, `contraL`, `contraR`, `contraLR`), `contra_not` and
+  `contra_neq` break the key: look names up, do not derive them.
+- Location: the `bool` and `Prop` forms are in Corelib `ssr/ssrbool.v`
+  (`contraNN`/`TN`/`NT`/`TT` are `Definition`s aliasing `contra`,
+  `contraL`, `contraR`, `contraLR`). The `eq`/`neq` forms are in
+  `mathcomp/boot/eqtype.v`: `contraNneq` (l. 222), `contra_neq`
+  (l. 258).
+- Search: `Search "contra".`, or `Search "contra" inside eqtype.` for
+  the equality forms.
+
+```coq
+From mathcomp Require Import all_boot.
+
+Lemma c3 m n : m * n != 0 -> m != 0.
+Proof. by apply: contraNN => /eqP ->; rewrite mul0n. Qed.
+```
+
+---
+
+## 17. Reason about membership in a seq
+
+(MCB §6.6.) Lemma statements, the `pT of mem` pitfall and examples:
+§49.6.
+
+| intent | idiom | ref |
+|---|---|---|
+| unfold membership in a cons | `rewrite in_cons` / `!inE`, then `=> /orP[/eqP->\|]` | §49.6 |
+| membership in `++` / filter / rev / undup | `mem_cat`, `mem_filter`, `mem_rev`, `mem_undup` | §49.6 |
+| membership in `map f s`, `f` injective | `rewrite (mem_map f_inj)` | §49.6 |
+| state "same elements" | `s1 =i s2` (`perm_eq` counts multiplicities) | §49.6 |
+| `=i` from `perm_eq` | `perm_mem` | §49.6 |
+| no duplicates | `uniq s`; `undup_uniq`, `cons_uniq` | §49.6 |
+| case-split on membership | `have [xs\|xNs] := boolP (x \in s)` | §49.6, §28.1 |
+| count occurrences | `count_mem x s`; `count_uniq_mem` | §49.6 |
+
+---
+
+## 18. Quick cross-reference map
 
 | intent group | this file | `templates.md` sibling |
 |---|---|---|
 | intro + transform | §1, §2 | — |
+| view on goal / term | §2b | §22 (prove a view) |
 | boolean / order / eq splits | §3, §4, §5 | §14 (finite split) |
-| conjunction / set split | §6 | §8, §9 (extensionality) |
+| conjunction / ∃ / ∨ / set split | §6 | §8, §9 (extensionality) |
 | forward `have` / `wlog` | §7, §10 | — |
 | under-binder rewrite | §8 | §5, §6, §7 (eq.) |
 | `near` / filter | §9 | §1, §1b |
 | classical | §11 | §15 (`decidable P`) |
 | closing / ring | §12, §13 | §12 (ring identity) |
+| induction | §15 | §21 (induction) |
+| negation / contraposition | §16 | §23 (negation) |
+| seq membership | §17 | — |

@@ -53,8 +53,14 @@ rocq_start theorem=<lemma> file=<path>
 # the first character of the tactic whose pre-state you want
 rocq_start file=<path> line=<L> character=<C>
 # or, for scratch iteration, warm imports only and paste the goal
-rocq_start preamble="From mathcomp Require Import all_ssreflect ssralg."
+rocq_start preamble="From mathcomp Require Import all_boot all_order ssralg."
 ```
+
+For a real file, paste its **whole header** as the preamble: the
+imports, the three flags, the `Import` line and any `Local Open Scope`
+(§5). Otherwise `Search` results and implicit status differ from the
+file. Use `all_boot` (+ `all_order` / `all_algebra`), not the
+deprecated `all_ssreflect` (§3).
 
 Read the returned goals and **capture the `state_id`** — it threads
 through every later call. Position mode rounds *forward* to a sentence
@@ -76,7 +82,7 @@ open scopes mid-proof:
 
 ```
 rocq_query command="Search (?h (?u + ?v))." from_state=<state_id>
-rocq_query command="Search _ (_ <= _) inside Order.TotalTheory." \
+rocq_query command="Search (_ <= _)%O inside Order.TotalTheory." \
            from_state=<state_id>
 ```
 
@@ -86,6 +92,13 @@ secondary symbols, strip over-matching wrappers with `-is_true`
 `-reflect` (§37.1, §37.11). Pick the intent-to-idiom row in
 `phrasebook.md` that matches what you want to *do* (close, decide,
 rewrite-under-binder, forward a fact) and follow its `(§N)`.
+
+No leading `_`: the book's `Search _ addn …` (MCB Part III, cheat
+sheet; MCB §2.5.1) uses a legacy head slot that current Rocq no longer
+has; `_` is now just a pattern. Restrict a pattern to the
+conclusion with `concl:(pat)`. For bigops use the §37.11 recipe (`"big"`
+name substring, generic `\big[_/_]_(i <- _ | _) _` with the `| _`
+filter slot).
 
 If `Search` returns nothing, broaden one axis at a time (drop a
 pattern constraint, widen the module) rather than firing a blind
@@ -116,10 +129,25 @@ Useful battery subsets (see `SKILL.md` § "`rocq_step_multi` battery"):
 # arithmetic         "lia.", "nia."          (zify first; §45.5)
 # ring / field       "ring.", "field.", "lra.", "nra."   (§45.3-§45.4)
 # structure          "case: n.", "elim: n.", "move=> *."
+# nat successor      "rewrite addSn.", "rewrite addnS.", "by []."
+# nat split          "case: leqP.", "case: ltngtP.", "elim/ltn_ind: n."
 ```
 
 `lia` / `lra` / `ring` / `field` need the matching `Require Import`
 warmed into the session first (cross-ref `domains/45_algebra_tactics.md`).
+
+`addn` / `muln` / `subn` are `simpl never`: `/=` does not expose a
+successor, so rewrite with `addSn` / `addnS` (§49.4). The nat-split
+case specs are in §28.1.
+
+Do not add `auto` / `intuition` / `firstorder` to the battery: a
+winner found that way must be rewritten into explicit steps anyway
+(§22.5). `trivial.` stays; it is what `done` uses.
+
+**New `Definition`?** Before proving lemmas about it, run `Compute`
+on 2–3 ground inputs through `rocq_query` with `from_state` (e.g.
+`command="Compute f 3."`, §37.12). A `Qed`-opaque or locked head
+stays stuck.
 
 ### 5. Commit the winner with `rocq_check`
 
@@ -198,7 +226,7 @@ Proof. Admitted.
 **1–2. Locate + inspect.** Warm the imports and read the goal.
 
 ```
-rocq_start preamble="From mathcomp Require Import all_ssreflect."
+rocq_start preamble="From mathcomp Require Import all_boot."
 # paste the lemma; capture state_id = 7. Goal: \sum_(i < n) 1 = n
 ```
 
@@ -251,3 +279,8 @@ to trim. Done.
   needs a `rewrite` / `have` / `case:` to reshape it first (steps 2–3),
   not a bigger battery.
 - A proof that compiles but adds an axiom is **not done** (step 6).
+- Bullets do not verify that a branch is closed (mathcomp sets
+  Bullet Behavior "None", §26.5): an open branch silently spills into
+  the next bullet. When repairing, read the goal **count** after each
+  `rocq_check`, not the bullet structure, and end every branch with
+  `by` / `exact:` / `done` (§26).

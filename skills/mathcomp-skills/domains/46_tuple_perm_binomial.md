@@ -22,6 +22,7 @@ codifies the canonical idioms.
 | `tnth t i`, `tnth_nth` | access a tuple at `i : 'I_n`; drop into `seq` | §46.2 |
 | `eq_from_tnth` | prove tuple equality pointwise on `'I_n` | §46.2, §46.5 |
 | `card_tuple` | `#\|{:n.-tuple T}\| = #\|T\| ^ n` for bigops | §46.2, §46.6 |
+| `ltn_ord`, `ord_inj` | bound and injectivity of `i : 'I_n`, no destructing | §46.2 |
 | `permP`, `permM` | permutation extensionality; `(s * t) x = t (s x)` | §46.3 |
 | `tperm`, `odd_perm` | transpositions and parity | §46.3 |
 | `card_Sn` | `#\|'S_n\| = n\`!` | §46.3 |
@@ -43,7 +44,7 @@ codifies the canonical idioms.
 | `thead t` | first element of an `n.+1`-tuple | l. 239 |
 | `tval t`, `t : seq _` | underlying sequence (coercion) | l. 61 |
 | `in_tuple s` | the `(size s).-tuple` value `s` | l. 133 |
-| `tcast E t` | rebrand an `m.-tuple` as an `n.-tuple` along `E : m = n` | l. 135 |
+| `tcast E t` | rebrand an `m.-tuple` as an `n.-tuple` along `E : m = n` (matrix analogue `castmx`: §38.10) | l. 135 |
 | `ord_tuple n` | the `n.-tuple 'I_n` enumerating `'I_n` | l. 429 |
 
 **Permutation.** `{perm T}` is `Inductive perm_type := Perm (pval : {ffun T -> T}) & injectiveb pval` (`perm.v` l. 49). The whole thing is a `finGroupType`, with `1`, `*`, `^-1`, `^+ n`, `^` and `commute` from `fingroup.v`.
@@ -113,6 +114,103 @@ rewrite !tnth_mktuple ...     (* both sides built with mktuple *)
 
 (* OR drop into seq and use the named seq lemma: *)
 rewrite (tnth_nth x0) (tnth_nth x0).
+```
+
+**Canonical tuple instances and registering new ones** (MCB §7.1).
+`n.-tuple T` is still a plain `Structure` with `Canonical`
+instances. Only its sub-type registration is HB (`[isSub for tval]`,
+boot/tuple.v:63). A new instance is therefore a plain `Canonical`.
+
+- `size_tuple` and `[tuple of s]` see through nil, cons, rcons, nseq,
+  iota, behead, belast, cat, take, drop, rev, rot, rotr, map, scanl,
+  pairmap, zip, allpairs, sort (boot/tuple.v:120-237), enum, image
+  and codom (boot/tuple.v:427-443). `size (rev (map f t)) = n` is
+  `by rewrite size_tuple`, not a `size_rev`/`size_map` chain.
+- A transparent `Definition` over those heads is unfolded during
+  inference. A `Fixpoint`, `locked` or opaque `f` needs an instance:
+  prove `f_tupleP : size (f t) == n` with the **boolean `==`** (a `=`
+  lemma fails with `cannot unify "nat" and "bool"`), then declare
+  `Canonical f_tuple ... := Tuple (f_tupleP ...)`, passing every
+  explicit argument.
+- Symptom of a missing instance: "The LHS of size_tuple (size _) does
+  not match any subterm of the goal" on a goal showing `size (f t)`.
+  If `Check [tuple of f t]` fails, add the instance or rewrite with
+  `size_f`.
+
+```coq
+From mathcomp Require Import all_boot.
+
+(* Library instances: size_tuple sees through map, then rev. *)
+Lemma size_rev_map n (t : n.-tuple nat) : size (rev (map S t)) = n.
+Proof. by rewrite size_tuple. Qed.
+
+Fixpoint clamp (m : nat) (s : seq nat) : seq nat :=
+  if s is x :: s' then minn x m :: clamp m s' else [::].
+Lemma size_clamp m s : size (clamp m s) = size s.
+Proof. by elim: s => //= x s ->. Qed.
+
+(* Diagnostic: no instance for the head `clamp` yet. *)
+Fail Check fun n (t : n.-tuple nat) => [tuple of clamp 3 t].
+
+(* WRONG: a Prop size lemma is not Tuple's boolean field. *)
+Lemma clamp_size_eq m n (t : n.-tuple nat) : size (clamp m t) = n.
+Proof. by rewrite size_clamp size_tuple. Qed.
+Fail Canonical clamp_bad m n t := Tuple (clamp_size_eq m n t).
+
+(* RIGHT: state it with ==, pass every explicit argument. *)
+Lemma clamp_tupleP m n (t : n.-tuple nat) : size (clamp m t) == n.
+Proof. by rewrite size_clamp size_tuple. Qed.
+Canonical clamp_tuple m n (t : n.-tuple nat) := Tuple (clamp_tupleP m n t).
+
+Lemma size_clamp_rev m n (t : n.-tuple nat) : size (clamp m (rev t)) = n.
+Proof. by rewrite size_tuple. Qed.
+```
+
+**Ordinal `'I_n` API** (MCB §7.4). `'I_n` is `Inductive
+ordinal : predArgType := Ordinal m of m < n` (boot/fintype.v:1727),
+a `Countable`, finite sub-type of `nat` via the coercion `nat_of_ord`.
+
+| Name | Statement / use | Site |
+|------|-----------------|------|
+| `ltn_ord i` | `i < n` | boot/fintype.v:1734 |
+| `Ordinal hm` | build an `'I_n` from `hm : m < n` | boot/fintype.v:1727 |
+| `ord_inj` / `val_inj` | `injective nat_of_ord`: equal as `nat` gives equal | boot/fintype.v:1736 |
+| `val_ord_enum` | `map val ord_enum = iota 0 n` | boot/fintype.v:1740 |
+| `mem_ord_enum` | `i \in ord_enum` | boot/fintype.v:1749 |
+| `val_enum_ord` | `map val (enum 'I_n) = iota 0 n` | boot/fintype.v:1766 |
+| `ord0`, `ord_max` | `0` and `n'` as elements of `'I_n'.+1` | boot/fintype.v:2212-2213 |
+| `lift h i`, `bump` | `'I_n.-1 -> 'I_n` skipping `h`; `lift0` gives `i.+1` | boot/fintype.v:2079, boot/fintype.v:2011 |
+| `widen_ord le_nm i` | `'I_n -> 'I_m` along `n <= m` | boot/fintype.v:1802 |
+| `cast_ord e i`, `cast_ord_id` | `'I_n -> 'I_m` along `e : n = m`; identity at `n = n` | boot/fintype.v:1806-1808 |
+| `enum_rank x`, `enum_val i` | `T -> 'I_#\|T\|` and back ("the `i`-th element of a `finType`") | boot/fintype.v:1892, boot/fintype.v:1897 |
+| `enum_rankK`, `enum_valK` | `cancel enum_rank enum_val` and converse | boot/fintype.v:1928, boot/fintype.v:1938 |
+
+- When only the bound is needed, use `ltn_ord i` (a `Hint Resolve`,
+  boot/fintype.v:1760, so `by []` also works), not
+  `case: i => m hm`. Destruct `i` only to compute with or induct on
+  its value (templates.md §14).
+- When an index is statically bounded, prefer `'I_n` (`tnth t i`,
+  `'M_(m, n)`, `T ^ n`) over `nat` plus a default: `nth x0 s i`
+  drags `i < size s` into every lemma, a bound in the type does not.
+
+```coq
+From mathcomp Require Import all_boot.
+
+(* WRONG: destruct i only to get its bound. *)
+Lemma ord_lt_wrong n (i : 'I_n) : i < n.
+Proof. by case: i => m hm. Qed.
+(* RIGHT; ltn_ord is also a Hint Resolve, so `by []` works too *)
+Lemma ord_lt n (i : 'I_n) : i < n.
+Proof. exact: ltn_ord. Qed.
+
+Lemma ord_eq n (i j : 'I_n) : nat_of_ord i = j -> i = j.
+Proof. exact: ord_inj. Qed.
+
+Lemma rank_of_val (T : finType) (i : 'I_#|T|) : enum_rank (enum_val i) = i.
+Proof. exact: enum_valK. Qed.
+
+(* Static bound in the type: the lookup is total, no default. *)
+Definition get n (t : n.-tuple nat) (i : 'I_n) : nat := tnth t i.
 ```
 
 ### 46.3 Permutation core lemma family
@@ -283,7 +381,7 @@ When does a sized collection get which type?
 
 Conversions:
 - `tuple` → `seq`: built-in coercion via `tval`.
-- `seq` (with size proof) → `tuple`: `Tuple p` or `[tuple of s]` (the second form requires a `Canonical` projection — every standard seq builder has one, see `tuple.v` l. 173-237).
+- `seq` (with size proof) → `tuple`: `Tuple p` or `[tuple of s]` (the second form requires a `Canonical` projection — every standard seq builder has one; for a user function, add one as in §46.2).
 - `tuple` → `'rV`: `\row_i tnth t i`.
 - `'rV` → `tuple`: `[tuple of [seq M 0 i | i <- enum 'I_n]]` (rare; usually a sign that the algorithm should stay in matrix form).
 - `'S_n` → `n.-tuple 'I_n`: `[tuple s i | i < n]` via `tuple_permP` (l. 315).
@@ -422,7 +520,7 @@ Counting finite configurations
   l. 61, `size_tuple` l. 69, `tnth_default` l. 72, `tnth_nth`
   l. 77, `tnth_onth` l. 80, `eq_from_tnth` l. 96, notations
   l. 109-127, `tcast` family l. 135-160, seq-builder
-  `Canonical`s l. 173-237, `tnth0`/`tnthS`/`thead`/`tupleP`
+  `Canonical`s l. 120-237 and 427-443, `tnth0`/`tnthS`/`thead`/`tupleP`
   l. 239-260, `tnth_map`/`tnth_nseq` l. 262-268, `tuple_eta`
   l. 276, `tnth_lshift`/`tnth_rshift` l. 282-292, tuple
   quantifiers l. 300-316, `eqEtuple` l. 331, `tnthP` l. 344,
@@ -458,6 +556,12 @@ Counting finite configurations
   l. 298, deprecated `Pascal` l. 309-310, `Vandermonde` l. 312,
   `prime_modn_expSn`/`fermat_little` l. 351-364, combinatorial
   characterizations l. 372-571).
+- `mathcomp/boot/fintype.v` (ordinals: `ordinal` l. 1727, instances
+  l. 1731-1753, `ltn_ord` l. 1734 + hint l. 1760, `ord_inj` l. 1736,
+  `val_ord_enum`/`mem_ord_enum` l. 1740-1749, `val_enum_ord` l. 1766,
+  `widen_ord`/`cast_ord` l. 1802-1808, `enum_rank`/`enum_val` and
+  cancellations l. 1892-1938, `bump` l. 2011, `lift` l. 2079,
+  `ord0`/`ord_max` l. 2212-2213).
 - §34 (bigops: `reindex_inj`, `bigD1`, `partition_big`).
 - §38 (matrix; uses `'S_n` in `\det` Leibniz formula, l. 3375).
 - §40 (finset; `cards_draws`, `card_draws` are the bridge to `'C`).

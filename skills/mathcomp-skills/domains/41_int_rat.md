@@ -21,6 +21,7 @@ one even when its statement is provably equal to the right one.
 | `n%:Q`, `numq`, `denq`, `numqE` | build / project a `rat`; numerator bridge | §41.2 |
 | `ratr` | embed `rat` into a `realType` for analysis | §41.2 |
 | `Gauss_dvdr`, `coprime1n` | coprimality-driven divisibility | §41.3 |
+| `'Z_p`, `inZp`, `Zp_cast`, `val_Zp_nat` | ring / field arithmetic mod an abstract `p` | §41.7 |
 
 ### 41.1 The `int` type and the `Posz` / `Negz` distinction
 
@@ -288,7 +289,71 @@ Search "Euclid".               (* Euclid_dvdM, Euclid_dvdX in prime.v *)
 of `Gauss_dvd`. Use them when the outer hypothesis is `prime p`,
 not a manual `coprime` invocation.
 
-### 41.7 Common pitfalls
+### 41.7 Modular rings: `'Z_p`, `'I_p`, `inZp`
+
+- **Abstract modulus → `'Z_p`.** For ring arithmetic modulo a
+  variable `p`, type the elements as `'Z_p`, i.e.
+  `'I_(Zp_trunc p).+2` (`mathcomp/algebra/zmodp.v`:
+  `Zp_trunc` (l. 281), notation at zmodp.v l. 283).
+  `(1 * 1 : 'I_p)%R` fails for an abstract `p`: the ring axioms
+  need `1 != 0`, so the instance exists only on `'I_p'.+2`
+  (MCB §8.1).
+- **Visible `_.+2` → `'I_p` works.** With `Variable p' : nat.
+  Local Notation p := p'.+2.` or a numeral (`'I_5`), `'I_p` has the
+  ring and is convertible to `'Z_p` (MCB §8.1). The shape-encoding idiom is
+  in reference.md §7 "Shape-encoded side conditions".
+- **Conversions.** `inZp : nat -> 'I_p'.+1` reduces its argument
+  modulo `p'.+1` (MCB §8.1). It lands in `'Z_p` only because `'Z_p` unfolds to
+  `'I_(Zp_trunc p).+2`. `val` (or the `nat_of_ord` coercion) goes
+  back to `nat`. Prefer `n%:R : 'Z_p` in statements and rewrite with
+  `Zp_nat` to reach `inZp n`.
+- **`'F_p` for fields.** `'F_p` is `'Z_(pdiv p)`. Its `fieldType` /
+  `finFieldType` instances (zmodp.v l. 409-410) exist for every `p`,
+  but `'F_p` is the integers mod `p` only under `prime p`: bridge
+  with `Fp_cast` (l. 378) and `val_Fp_nat` (l. 384).
+- `lia` does not see `'I_n` / `'Z_p`: go through `val` first (§45.5).
+
+| Lemma | Statement / side condition |
+|-------|----------------------------|
+| `Zp_nat` (l. 258) | `n%:R = inZp n :> 'I_p'.+2`; no side condition, applies to `'Z_p` |
+| `Zp_cast` (l. 315) | `1 < p -> (Zp_trunc p).+2 = p` |
+| `val_Zp_nat` (l. 318) | `1 < p -> (n%:R : 'Z_p) = n %% p :> nat` |
+| `Zp_nat_mod` (l. 321) | `1 < p -> (m %% p)%:R = m%:R :> 'Z_p` |
+| `pchar_Zp` (l. 324) | `1 < p -> p%:R = 0 :> 'Z_p` (not `char_Zp`, deprecated 2.4.0) |
+| `card_Zp` (l. 338) | `0 < p -> #\|Zp p\| = p`: the group **set** `Zp p`; for the type use `card_ord` + `Zp_cast` |
+| `card_Fp` (l. 381) | `prime p -> #\|'F_p\| = p` |
+
+Search: `Search "Zp_" inside zmodp.` and `Search "Fp_" inside zmodp.`
+
+```coq
+From mathcomp Require Import all_boot all_algebra.
+
+Section Shape.
+Variable p' : nat.  Local Notation p := p'.+2.
+Check (1 * 1 : 'I_p)%R.       (* OK: p is visibly _.+2 *)
+End Shape.
+
+Section Abstract.
+Variables (p : nat) (p_gt1 : 1 < p).
+Fail Check (1 * 1 : 'I_p)%R.  (* no ring on 'I_p *)
+Check (1 * 1 : 'Z_p)%R.       (* OK: 'Z_p = 'I_(Zp_trunc p).+2 *)
+Check inZp 7 : 'Z_p.          (* inZp : nat -> 'I_p'.+1 *)
+Lemma val_natZp n : val (n%:R : 'Z_p)%R = n %% p.
+Proof. exact: val_Zp_nat. Qed.
+Lemma natZp_p : (p%:R : 'Z_p)%R = 0%R.
+Proof. exact: pchar_Zp. Qed.
+Lemma card_ZpT : #|'Z_p| = p.
+Proof. by rewrite card_ord Zp_cast. Qed.
+End Abstract.
+
+Section Prime.
+Variables (p : nat) (p_pr : prime p).
+Check 'F_p : fieldType.       (* 'F_p = 'Z_(pdiv p) *)
+Check card_Fp p_pr : #|'F_p| = p.
+End Prime.
+```
+
+### 41.8 Common pitfalls
 
 1. **`Z` (stdlib) vs `int` (mathcomp).** For mathcomp / mathcomp-
    analysis upstream contributions, prefer `int` over `ZArith.Z`:
@@ -329,7 +394,7 @@ not a manual `coprime` invocation.
     When `m, n : nat` but the surrounding goal is in `ring_scope`,
     write `((m + n) %/ d)%N` explicitly.
 
-### 41.8 Quick decision flow
+### 41.9 Quick decision flow
 
 ```
 Goal involves division / modulus / gcd.
@@ -345,6 +410,11 @@ Goal involves division / modulus / gcd.
   Arguments are rat?
     -> rat is a field; use plain /, ^-1; no division-with-remainder
     -> projections numq, denq for normal-form access; numqE bridges
+
+  Need a ring (or field) of integers mod p?     (§41.7, MCB §8.1)
+    -> p abstract: 'Z_p; inZp / n%:R in, val out; Zp_cast, val_Zp_nat
+    -> p = p'.+2 or a numeral: 'I_p is already the ring
+    -> p prime and a field is needed: 'F_p
 
   Need Bezout coefficients?
     -> nat: egcdn, Bezoutl/r          (boot/div.v l. 677, 724-732)
@@ -370,7 +440,9 @@ l. 627, `natz` l. 630); `mathcomp/algebra/intdiv.v` (`divz`/`modz`/
 `dvdz`/`gcdz`/`coprimez` l. 53-69, `Bezoutz` l. 603,
 `zchinese_remainder` l. 667); `mathcomp/algebra/rat.v` (`rat` record
 l. 41, `numq`/`denq` l. 57-58, `n%:Q` notation l. 524, `fracqE`
-l. 572, `ratr` l. 838); `mathcomp/boot/prime.v` (`Euclid_dvd*`
+l. 572, `ratr` l. 838); `mathcomp/algebra/zmodp.v` (`'Z_p` /
+`Zp_trunc` l. 281-283, `Zp_cast` l. 315); `mathcomp/boot/prime.v`
+(`Euclid_dvd*`
 l. 422-441). Cross-references: §10 (lemma naming), §11 (`n` vs `z`
 abbreviation), §23 (avoiding fully-qualified identifiers), §37
 (search idioms).
